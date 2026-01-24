@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>YouTube Audio Player (Excel)</title>
+
+  <!-- SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- YouTube IFrame API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    button {
+      padding: 10px 16px;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+    #status {
+      margin-top: 15px;
+      color: #555;
+    }
+    /* скрываем видео полностью */
+    #player {
+      width: 0;
+      height: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+
+<h2>YouTube Audio из Excel</h2>
+
+<input type="file" id="fileInput" accept=".xlsx,.xls">
+<br><br>
+<button id="playBtn" disabled>Play (3 сек)</button>
+
+<div id="status">Загрузите Excel-файл</div>
+
+<div id="player"></div>
+
+<script>
+let links = [];
+let currentIndex = 0;
+let player = null;
+let playerReady = false;
+
+// ---------- YouTube API (ГЛОБАЛЬНО) ----------
+window.onYouTubeIframeAPIReady = function () {
+  player = new YT.Player('player', {
+    height: '0',
+    width: '0',
+    videoId: '',
+    playerVars: {
+      autoplay: 0,
+      controls: 0,
+      disablekb: 1,
+      fs: 0,
+      modestbranding: 1,
+      rel: 0
+    },
+    events: {
+      onReady: function () {
+        playerReady = true;
+        document.getElementById('status').textContent =
+          'YouTube плеер готов';
+      }
+    }
+  });
+};
+
+// ---------- Excel ----------
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    links = rows
+      .map(r => r[0])
+      .filter(v => typeof v === 'string' && v.includes('youtu'));
+
+    if (!links.length) {
+      throw new Error('Нет YouTube ссылок в первом столбце');
+    }
+
+    currentIndex = 0;
+    document.getElementById('playBtn').disabled = false;
+    document.getElementById('status').textContent =
+      `Файл загружен. Треков: ${links.length}`;
+
+  } catch (err) {
+    document.getElementById('status').textContent =
+      'Ошибка Excel: ' + err.message;
+  }
+});
+
+// ---------- Play ----------
+document.getElementById('playBtn').addEventListener('click', () => {
+  if (!player || !playerReady) {
+    alert('YouTube плеер ещё загружается, подождите 1–2 секунды');
+    return;
+  }
+
+  if (currentIndex >= links.length) {
+    document.getElementById('status').textContent = 'Список закончился';
+    return;
+  }
+
+  const videoId = extractVideoId(links[currentIndex]);
+  if (!videoId) {
+    currentIndex++;
+    return;
+  }
+
+  document.getElementById('status').textContent =
+    `▶ ${currentIndex + 1} / ${links.length}`;
+
+  player.loadVideoById(videoId);
+  player.playVideo();
+
+  setTimeout(() => {
+    player.stopVideo();
+    currentIndex++;
+  }, 3000);
+});
+
+// ---------- helper ----------
+function extractVideoId(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('youtu.be')) {
+      return u.pathname.slice(1);
+    }
+    if (u.hostname.includes('youtube.com')) {
+      return u.searchParams.get('v');
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+</script>
+
+
+</body>
+</html>
