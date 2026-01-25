@@ -223,6 +223,9 @@
     }
 
     function displayChatBar(data, login) {
+        const rawName = data.player_name;
+        let nickname = rawName.replace(/LVL\d/, "").split(' (')[0].trim();
+        
         const sidebar = document.getElementById('chat-sidebar');
         const safeId = btoa(login).replace(/=/g, "");
         if (document.getElementById(`bar-${safeId}`)) return;
@@ -238,7 +241,7 @@
         bar.dataset.aEval = "-1"; bar.dataset.sEval = "-1";
 
         bar.innerHTML = `
-            <div style="font-size:14px; opacity:0.8; pointer-events:none;">👤 ${data.player_name}</div>
+            <div style="font-size:14px; opacity:0.8; pointer-events:none;">👤 ${nickname}</div>
             <div class="eval-section" style="display:none;">
                 <div style="font-size:14px; color:var(--accent)">АРТИСТ: <b>${art}</b></div>
                 <div class="eval-btns" id="btns-art-${safeId}">
@@ -361,5 +364,6 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
+
 
 
