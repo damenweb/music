@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; --accent: #0078d4; --border: #333333; }
+        :root { --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; --accent: #0078d4; --border: #333333; --danger: #c62828; }
         body { font-family: 'Roboto', sans-serif; background-color: var(--dark-bg); color: var(--text-color); margin: 0; display: flex; height: 100vh; overflow: hidden; }
         
         .game-section { width: 70%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--border); position: relative; }
@@ -34,18 +34,16 @@
         .player-info { display: flex; flex-direction: column; flex: 1; }
         .player-name-text { font-size: 18px; font-weight: bold; color: #fff; }
         .player-login-text { font-size: 12px; color: #777; margin-top: 2px; }
-        .score-input { width: 80px; background: #000; border: 1px solid var(--accent); color: #fff; padding: 8px 0; text-align: center; font-weight: bold; font-size: 18px; border-radius: 2px; }
+        .score-input { width: 80px; background: #000; border: 1px solid var(--accent); color: #fff; padding: 8px 0; text-align: center; font-weight: bold; font-size: 18px; border-radius: 2px; margin-right: 10px; }
         .score-input::-webkit-outer-spin-button, .score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        /* Кнопка удаления */
+        .btn-delete-user { background: none; border: none; color: #555; cursor: pointer; font-size: 18px; padding: 5px; transition: 0.2s; }
+        .btn-delete-user:hover { color: var(--danger); }
 
         /* Оповещения */
         #chat-sidebar { position: fixed; left: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 9999; pointer-events: none; }
-        .chat-bar { 
-            background: rgba(30, 30, 30, 0.98); 
-            border: 2px solid var(--accent); /* Новое по умолчанию голубое */
-            color: white; padding: 12px; border-radius: 8px; width: 180px; 
-            transition: 0.2s; pointer-events: auto; cursor: pointer; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4); 
-        }
+        .chat-bar { background: rgba(30, 30, 30, 0.98); border: 2px solid var(--accent); color: white; padding: 12px; border-radius: 8px; width: 180px; transition: 0.2s; pointer-events: auto; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
         .chat-bar.open { width: 350px; }
         .eval-section { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
         .eval-btns { display: flex; gap: 5px; margin-top: 5px; }
@@ -202,12 +200,21 @@
                         <span class="player-login-text">@${login}</span>
                     </div>
                     <input type="number" class="score-input" value="0" id="score-${login}" onchange="updateRowScore('${login}', this.value)">
+                    <button class="btn-delete-user" onclick="deletePlayer('${login}')" title="Удалить игрока">🗑</button>
                 </div>`;
             list.insertAdjacentHTML('beforeend', html);
         } else {
             row.querySelector('.player-name-text').innerText = nickname;
         }
         sortPlayers();
+    }
+
+    // НОВАЯ ФУНКЦИЯ УДАЛЕНИЯ
+    function deletePlayer(login) {
+        if (confirm(`Удалить игрока @${login} из списка?`)) {
+            const row = document.getElementById(`row-user-${login}`);
+            if (row) row.remove();
+        }
     }
 
     function updateRowScore(login, val) {
@@ -289,11 +296,8 @@
             updateRowScore(login, scoreInp.value);
         }
 
-        // Логика смены обводки и комбо
         if (bar.dataset.aEval !== "-1" && bar.dataset.sEval !== "-1") {
-            // Если обе кнопки нажаты - золотая обводка
             bar.style.borderColor = "var(--gold)";
-            
             if (parseFloat(bar.dataset.aEval) > 0 && parseFloat(bar.dataset.sEval) > 0) {
                 const combo = parseFloat(config.querySelector('.set-combo').value);
                 scoreInp.value = (parseFloat(scoreInp.value) + combo).toFixed(1);
@@ -364,7 +368,3 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
-
-
-
-
