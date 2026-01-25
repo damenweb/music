@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; --accent: #0078d4; --border: #333333; --danger: #c62828; }
+        :root { --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; --accent: #0078d4; --border: #333333; --danger: #c62828; --answered: #1b78e3; }
         body { font-family: 'Roboto', sans-serif; background-color: var(--dark-bg); color: var(--text-color); margin: 0; display: flex; height: 100vh; overflow: hidden; }
         
         .game-section { width: 70%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--border); position: relative; }
@@ -30,7 +30,8 @@
         .btn-nav { padding: 10px 25px; background: #333; color: #fff; border: none; cursor: pointer; font-weight: bold; font-size: 16px; border-radius: 2px; }
 
         /* Участники */
-        .player-row { display: flex; align-items: center; justify-content: space-between; background: #252525; padding: 12px; margin-bottom: 6px; border-radius: 4px; border-left: 4px solid var(--accent); }
+        .player-row { display: flex; align-items: center; justify-content: space-between; background: #252525; padding: 12px; margin-bottom: 6px; border-radius: 4px; border-left: 4px solid var(--accent); transition: background-color 0.3s; }
+        .player-row.is-answered { background-color: var(--answered); }
         .player-info { display: flex; flex-direction: column; flex: 1; }
         .player-name-text { font-size: 18px; font-weight: bold; color: #fff; }
         .player-login-text { font-size: 12px; color: #777; margin-top: 2px; }
@@ -170,6 +171,8 @@
         document.getElementById('track-counter').innerText = `Песня ${playlist.length > 0 ? currentIndex + 1 : 0}/${playlist.length}`;
         document.getElementById('answer-box').innerText = "******";
         isAnswerShown = false;
+        // Сброс подсветки ответивших при смене песни
+        document.querySelectorAll('.player-row').forEach(row => row.classList.remove('is-answered'));
     }
 
     // --- ИГРОКИ ---
@@ -203,13 +206,17 @@
                     <button class="btn-delete-user" onclick="deletePlayer('${login}')" title="Удалить игрока">🗑</button>
                 </div>`;
             list.insertAdjacentHTML('beforeend', html);
+            row = document.getElementById(`row-user-${login}`);
         } else {
             row.querySelector('.player-name-text').innerText = nickname;
         }
+        
+        // Помечаем игрока как ответившего
+        row.classList.add('is-answered');
+        
         sortPlayers();
     }
 
-    // НОВАЯ ФУНКЦИЯ УДАЛЕНИЯ
     function deletePlayer(login) {
         if (confirm(`Удалить игрока @${login} из списка?`)) {
             const row = document.getElementById(`row-user-${login}`);
@@ -317,7 +324,7 @@
         supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec: 0 } });
         await supabaseClient.from('quiz_chat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         document.getElementById('chat-sidebar').innerHTML = '';
-        updateTrackDisplay();
+        updateTrackDisplay(); // Тут сбрасывается подсветка
         if(ytPlayer) ytPlayer.stopVideo();
     }
 
