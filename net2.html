@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Плеер - Quiz</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #121212; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .box { background: #1e1e1e; padding: 25px; border-radius: 15px; width: 320px; text-align: center; position: relative; border: 1px solid #333; }
+        input { width: 100%; padding: 12px; margin: 8px 0; background: #2b2b2b; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #0078d4; border: none; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 5px; }
+        button:disabled { background: #333; color: #777; }
+        #player-timer { font-size: 64px; font-weight: bold; color: #0078d4; margin: 10px 0; }
+        #pause-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; display: flex; align-items: center; justify-content: center; border-radius: 15px; display: none; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen" class="box">
+        <h3>Вход</h3>
+        <input type="text" id="username" placeholder="Логин">
+        <input type="password" id="password" placeholder="Пароль">
+        <button onclick="tryLogin()">Войти</button>
+    </div>
+
+    <div id="game-screen" class="box hidden">
+        <div id="pause-overlay"><h1>ПАУЗА</h1></div>
+        <div id="lvl-badge" style="color: #D4AF37">ОЖИДАНИЕ</div>
+        <div id="player-timer">00</div>
+        <input type="text" id="pArtist" placeholder="Исполнитель...">
+        <input type="text" id="pSong" placeholder="Песня...">
+        <button id="sendBtn" onclick="send()" disabled>ОТПРАВИТЬ</button>
+        <div id="status" style="margin-top:10px; font-size:12px; color:#888;">Ждем начала...</div>
+        <button onclick="logout()" style="background:none; color:red; font-size:10px; margin-top:20px;">Выйти</button>
+    </div>
+
+    <script>
+        const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+        const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+        const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+        let myLogin = "", myNickname = "", hasAnswered = false, idleTime = 0;
+
+        setInterval(() => { 
+            if(myLogin) { idleTime++; if(idleTime > 180) logout(); }
+        }, 1000);
+        document.onmousedown = document.onkeydown = () => idleTime = 0;
+
+        async function tryLogin() {
+            const u = document.getElementById('username').value, p = document.getElementById('password').value;
+            const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', u).eq('password', p).single();
+            if (data) { 
+                myLogin = u; myNickname = u; 
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('game-screen').classList.remove('hidden');
+                const chan = supabaseClient.channel('quiz_chat');
+                chan.subscribe(async (status) => { if(status === 'SUBSCRIBED') await chan.track({ user: u, nickname: u }); });
+                checkPause();
+            }
+        }
+
+        async function checkPause() {
+            const { data } = await supabaseClient.from('quiz_state').select('is_paused').eq('id', 'global').single();
+            togglePauseUI(data?.is_paused);
+        }
+
+        function togglePauseUI(p) { document.getElementById('pause-overlay').style.display = p ? 'flex' : 'none'; }
+
+        function logout() { location.reload(); }
+
+        async function send() {
+            if(hasAnswered) return;
+            const a = document.getElementById('pArtist').value, s = document.getElementById('pSong').value;
+            hasAnswered = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('status').innerText = "Ответ принят! Откинься на спинку кресла 😎";
+            await supabaseClient.from('quiz_chat').insert([{ player_name: `(${myLogin})`, message: `${a} | ${s}` }]);
+        }
+
+        const channel = supabaseClient.channel('quiz_chat');
+        channel.on('broadcast', { event: 'game_paused' }, p => togglePauseUI(p.payload.paused))
+        .on('broadcast', { event: 'start_timer' }, p => {
+            const sec = p.payload.sec;
+            document.getElementById('lvl-badge').innerText = p.payload.lvl || "ОЖИДАНИЕ";
+            if (sec > 0) {
+                if(!hasAnswered) document.getElementById('sendBtn').disabled = false;
+                let left = sec;
+                const t = setInterval(() => {
+                    left--; document.getElementById('player-timer').innerText = left < 10 ? '0'+left : left;
+                    if(left <= 0) { clearInterval(t); document.getElementById('sendBtn').disabled = true; }
+                }, 1000);
+            } else {
+                hasAnswered = false; document.getElementById('status').innerText = "Слушай...";
+                document.getElementById('pArtist').value = ""; document.getElementById('pSong').value = "";
+            }
+        }).subscribe();
+    </script>
+</body>
+</html>
