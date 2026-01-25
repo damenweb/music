@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ответница - Quiz</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body { background: #121212; color: white; font-family: 'Roboto', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
         .box { background: #1e1e1e; padding: 25px; border-radius: 15px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
@@ -15,46 +16,40 @@
         button:disabled { background: #333; color: #777; cursor: not-allowed; transform: none; }
         .btn-edit { background: transparent; color: #888; font-size: 12px; text-decoration: underline; margin-top: 10px; width: auto; padding: 5px; border: none; cursor: pointer; }
         .hidden { display: none; }
-        #status { margin-top: 15px; font-size: 0.9em; color: #888; min-height: 1.2em; }
-
-        /* ТАЙМЕР */
-        #player-timer {
-            font-size: 64px; font-weight: bold; color: #0078d4; 
-            margin-bottom: 10px; font-family: monospace;
-        }
-        .timer-low { color: #ff4d4d !important; }
-        
+        #status { margin-top: 15px; font-size: 0.9em; color: #aaa; min-height: 2.4em; line-height: 1.2; }
+        #player-timer { font-size: 64px; font-weight: bold; color: #0078d4; margin-bottom: 10px; font-family: monospace; }
         .lvl-indicator { font-size: 12px; color: #D4AF37; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+        #auth-status { color: #ff4d4d; margin-top: 10px; font-size: 14px; }
     </style>
 </head>
 <body>
 
     <div id="auth-screen" class="box">
         <h2>Вход в Quiz</h2>
-        <input type="email" id="email" placeholder="Логин (player1@quiz.com)">
+        <input type="text" id="username" placeholder="Логин (например, player1)">
         <input type="password" id="password" placeholder="Пароль">
-        <button onclick="signIn()">Войти</button>
-        <div id="auth-status" style="color: #ff4d4d; margin-top: 10px;"></div>
+        <button id="loginBtn" onclick="tryLogin()">Войти</button>
+        <div id="auth-status"></div>
     </div>
 
     <div id="name-screen" class="box hidden">
         <h2>Твоё имя</h2>
-        <input type="text" id="pName" placeholder="Введи имя для таблицы...">
+        <input type="text" id="pName" placeholder="Введи имя">
         <button onclick="saveName()">Сохранить</button>
     </div>
 
     <div id="game-screen" class="box hidden">
         <div id="lvl-badge" class="lvl-indicator">ОЖИДАНИЕ ТРЕКА</div>
         <div id="player-timer">00</div>
-        
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span id="display-name" style="font-weight: bold; color: #0078d4;"></span>
             <button class="btn-edit" onclick="editName()">Изм.</button>
         </div>
-
-        <input type="text" id="pAns" placeholder="Твой ответ...">
+        <input type="text" id="pArtist" placeholder="Исполнитель...">
+        <input type="text" id="pSong" placeholder="Название песни...">
         <button id="sendBtn" onclick="send()" disabled>Отправить ответ</button>
         <div id="status">Ждем начала раунда...</div>
+        <button class="btn-edit" style="margin-top: 20px; color: #555;" onclick="logout()">Выйти из аккаунта</button>
     </div>
 
     <script>
@@ -62,139 +57,114 @@
         const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
         const supabaseClient = supabase.createClient(S_URL, S_KEY);
 
-        let mySavedName = localStorage.getItem('quiz_player_name');
         let myLogin = "";
-        let localTimerId;
-        let currentLvlPrefix = ""; 
-        let hasSentAnswer = false; // Флаг, ограничивающий ответ 1 раз за трек
+        let mySavedName = localStorage.getItem('quiz_player_nickname');
+        let localTimerId, currentLvlPrefix = "", hasSentAnswer = false;
 
-        window.onload = async () => {
-            const { data: { user } } = await supabaseClient.auth.getUser();
-            if (user) handleUserSession(user);
-        };
+        window.onload = () => { checkAuth(); };
 
-        async function signIn() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-            if (error) document.getElementById('auth-status').innerText = "Ошибка: " + error.message;
-            else handleUserSession(data.user);
+        async function checkAuth() {
+            const storedUser = localStorage.getItem('quiz_user');
+            const storedPass = localStorage.getItem('quiz_pass');
+            if (storedUser && storedPass) {
+                const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', storedUser).eq('password', storedPass).single();
+                if (data) { myLogin = data.username; showGameScreen(); } else { logout(); }
+            }
         }
 
-        function handleUserSession(user) {
-            myLogin = user.email.split('@')[0];
-            document.getElementById('auth-screen').classList.add('hidden');
-            if (!mySavedName) {
-                document.getElementById('name-screen').classList.remove('hidden');
-            } else {
-                startGame();
+        async function tryLogin() {
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+            const status = document.getElementById('auth-status');
+            if (!user || !pass) return status.innerText = "Заполни все поля";
+            const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', user).eq('password', pass).single();
+            if (!data) { status.innerText = "Неверный логин или пароль"; } else {
+                localStorage.setItem('quiz_user', user); localStorage.setItem('quiz_pass', pass);
+                myLogin = data.username; showGameScreen();
             }
+        }
+
+        function showGameScreen() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            if (!mySavedName) { document.getElementById('name-screen').classList.remove('hidden'); } 
+            else { document.getElementById('game-screen').classList.remove('hidden'); document.getElementById('display-name').innerText = mySavedName; }
         }
 
         function saveName() {
             const name = document.getElementById('pName').value.trim();
             if (!name) return alert("Введите имя!");
-            mySavedName = name;
-            localStorage.setItem('quiz_player_name', name);
-            document.getElementById('name-screen').classList.add('hidden');
-            startGame();
+            mySavedName = name; localStorage.setItem('quiz_player_nickname', name);
+            document.getElementById('name-screen').classList.add('hidden'); showGameScreen();
         }
 
         function editName() {
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('name-screen').classList.remove('hidden');
-            document.getElementById('pName').value = mySavedName;
         }
 
-        function startGame() {
-            document.getElementById('game-screen').classList.remove('hidden');
-            document.getElementById('display-name').innerText = mySavedName;
-        }
+        function logout() { localStorage.clear(); location.reload(); }
 
-        // ОТПРАВКА ОТВЕТА
         async function send() {
-            if (hasSentAnswer) return; // Если уже отвечал — выходим
+            if (hasSentAnswer) return;
+            const artist = document.getElementById('pArtist').value.trim();
+            const song = document.getElementById('pSong').value.trim();
+            if(!artist && !song) return;
 
-            const input = document.getElementById('pAns');
-            const btn = document.getElementById('sendBtn');
-            const text = input.value.trim();
-            if(!text) return;
+            const storedUser = localStorage.getItem('quiz_user');
+            const storedPass = localStorage.getItem('quiz_pass');
+            const { data } = await supabaseClient.from('quiz_users').select('id').eq('username', storedUser).eq('password', storedPass).single();
+            if(!data) return logout();
 
-            hasSentAnswer = true; // Ставим флаг блокировки
-            btn.disabled = true; 
-            document.getElementById('status').innerText = "Ответ принят! Жди следующий трек.";
+            hasSentAnswer = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('status').innerText = "Ответ принят! Откинься на спинку кресла и жди следующую песню 😎";
             
-            // Формируем имя с префиксом LVL
             const fullName = `${currentLvlPrefix}${mySavedName} (${myLogin})`;
-            
-            await supabaseClient.from('quiz_chat').insert([
-                { player_name: fullName, message: text }
-            ]);
+            const message = `${artist} | ${song}`;
+            await supabaseClient.from('quiz_chat').insert([{ player_name: fullName, message: message }]);
         }
 
         const channel = supabaseClient.channel('quiz_chat');
-
-        // 1. СБРОС (когда админ переключает трек - DELETE)
+        
         channel.on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'quiz_chat' }, () => {
-            hasSentAnswer = false; // СБРАСЫВАЕМ ФЛАГ ОТВЕТА
+            hasSentAnswer = false;
             document.getElementById('sendBtn').disabled = true;
-            document.getElementById('pAns').value = "";
-            document.getElementById('status').innerText = "Новый раунд. Жди кнопку!";
+            document.getElementById('pArtist').value = "";
+            document.getElementById('pSong').value = "";
+            document.getElementById('status').innerText = "Новый раунд. Ждем начала трека...";
             document.getElementById('lvl-badge').innerText = "ОЖИДАНИЕ ТРЕКА";
-            currentLvlPrefix = "";
             clearInterval(localTimerId);
             document.getElementById('player-timer').innerText = "00";
-            document.getElementById('player-timer').classList.remove('timer-low');
         });
 
-        // 2. СИГНАЛ ТАЙМЕРА (BROADCAST)
         channel.on('broadcast', { event: 'start_timer' }, (payload) => {
             const sec = payload.payload.sec;
             currentLvlPrefix = payload.payload.lvl || ""; 
-
             if (sec > 0) {
-                // Разблокируем только если игрок еще НЕ отвечал в этом раунде
                 if (!hasSentAnswer) {
                     document.getElementById('sendBtn').disabled = false;
-                    document.getElementById('status').innerText = "Кнопка активна! Пиши!";
-                } else {
-                    document.getElementById('status').innerText = "Ты уже ответил в этом раунде.";
+                    document.getElementById('status').innerText = "Скорее пиши свой ответ! Время идет! 🏃💨";
                 }
-                
-                document.getElementById('lvl-badge').innerText = currentLvlPrefix ? "АКТИВЕН " + currentLvlPrefix : "ПОЛНАЯ ВЕРСИЯ";
-                startLocalTimer(sec);
+                document.getElementById('lvl-badge').innerText = currentLvlPrefix ? "Этап " + currentLvlPrefix : "ПОЛНАЯ ВЕРСИЯ";
+                let left = sec;
+                const timerEl = document.getElementById('player-timer');
+                clearInterval(localTimerId);
+                localTimerId = setInterval(() => {
+                    left--;
+                    timerEl.innerText = left < 10 ? '0' + left : left;
+                    if (left <= 0) { 
+                        clearInterval(localTimerId); 
+                        document.getElementById('sendBtn').disabled = true; 
+                        if (!hasSentAnswer) document.getElementById('status').innerText = "Время вышло! ⌛ Ждем новую подсказку...";
+                    }
+                }, 1000);
             } else {
-                stopGameAction();
+                // Если пришел пустой таймер (стоп)
+                clearInterval(localTimerId);
+                document.getElementById('player-timer').innerText = "00";
+                document.getElementById('sendBtn').disabled = true;
             }
         }).subscribe();
-
-        function stopGameAction() {
-            clearInterval(localTimerId);
-            document.getElementById('sendBtn').disabled = true;
-            document.getElementById('player-timer').innerText = "00";
-            if (!hasSentAnswer) {
-                document.getElementById('status').innerText = "Время вышло!";
-            }
-        }
-
-        function startLocalTimer(seconds) {
-            clearInterval(localTimerId);
-            let left = seconds;
-            const timerEl = document.getElementById('player-timer');
-            timerEl.classList.remove('timer-low');
-            timerEl.innerText = left < 10 ? '0' + left : left;
-
-            localTimerId = setInterval(() => {
-                left--;
-                if (left <= 0) {
-                    stopGameAction();
-                } else {
-                    timerEl.innerText = left < 10 ? '0' + left : left;
-                    if (left <= 5) timerEl.classList.add('timer-low');
-                }
-            }, 1000);
-        }
     </script>
 </body>
 </html>
-
