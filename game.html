@@ -238,19 +238,23 @@
         bar.dataset.aEval = "-1"; bar.dataset.sEval = "-1";
 
         bar.innerHTML = `
-            <div style="font-size:14px; opacity:0.8; pointer-events:none;">👤 ${data.player_name}</div>
-            <div class="eval-section" style="display:none;">
-                <div style="font-size:14px; color:var(--accent)">АРТИСТ: <b>${art}</b></div>
-                <div class="eval-btns" id="btns-art-${safeId}">
-                    <button class="btn-v" onclick="evalAns('${safeId}', 'art', 1, ${lvl})">✅</button>
-                    <button class="btn-c" onclick="evalAns('${safeId}', 'art', 0.5, ${lvl})">⚠️</button>
-                    <button class="btn-n" onclick="evalAns('${safeId}', 'art', 0, ${lvl})">❌</button>
+            <div style="font-size:11px; font-weight:bold; color:var(--accent);">Новый ответ: ${login}</div>
+            <div class="eval-section">
+                <div class="eval-row">
+                    <div style="font-size:11px; color:#aaa;">АРТ: <b style="color:#fff;">${art}</b></div>
+                    <div class="eval-btns" id="btns-art-${safeId}">
+                        <button class="btn-v" title="Верно" onclick="evalAns('${safeId}', 'art', 1, ${lvl})">✅</button>
+                        <button class="btn-c" title="Частично" onclick="evalAns('${safeId}', 'art', 0.5, ${lvl})">☑️</button>
+                        <button class="btn-n" title="Неверно" onclick="evalAns('${safeId}', 'art', 0, ${lvl})">❌</button>
+                    </div>
                 </div>
-                <div style="font-size:14px; color:var(--accent); margin-top:10px">ПЕСНЯ: <b>${sng}</b></div>
-                <div class="eval-btns" id="btns-song-${safeId}">
-                    <button class="btn-v" onclick="evalAns('${safeId}', 'song', 1, ${lvl})">✅</button>
-                    <button class="btn-c" onclick="evalAns('${safeId}', 'song', 0.5, ${lvl})">⚠️</button>
-                    <button class="btn-n" onclick="evalAns('${safeId}', 'song', 0, ${lvl})">❌</button>
+                <div class="eval-row">
+                    <div style="font-size:11px; color:#aaa;">ПЕС: <b style="color:#fff;">${sng}</b></div>
+                    <div class="eval-btns" id="btns-song-${safeId}">
+                        <button class="btn-v" title="Верно" onclick="evalAns('${safeId}', 'song', 1, ${lvl})">✅</button>
+                        <button class="btn-c" title="Частично" onclick="evalAns('${safeId}', 'song', 0.5, ${lvl})">☑️</button>
+                        <button class="btn-n" title="Неверно" onclick="evalAns('${safeId}', 'song', 0, ${lvl})">❌</button>
+                    </div>
                 </div>
             </div>`;
 
@@ -361,5 +365,6 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
+
 
 
