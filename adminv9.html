@@ -238,15 +238,15 @@
         bar.dataset.aEval = "-1"; bar.dataset.sEval = "-1";
 
         bar.innerHTML = `
-            <div style="font-size:11px; opacity:0.8; pointer-events:none;">👤 ${data.player_name}</div>
+            <div style="font-size:14px; opacity:0.8; pointer-events:none;">👤 ${data.player_name}</div>
             <div class="eval-section" style="display:none;">
-                <div style="font-size:10px; color:var(--accent)">АРТИСТ: <b>${art}</b></div>
+                <div style="font-size:14px; color:var(--accent)">АРТИСТ: <b>${art}</b></div>
                 <div class="eval-btns" id="btns-art-${safeId}">
                     <button class="btn-v" onclick="evalAns('${safeId}', 'art', 1, ${lvl})">✅</button>
                     <button class="btn-c" onclick="evalAns('${safeId}', 'art', 0.5, ${lvl})">⚠️</button>
                     <button class="btn-n" onclick="evalAns('${safeId}', 'art', 0, ${lvl})">❌</button>
                 </div>
-                <div style="font-size:10px; color:var(--accent); margin-top:10px">ПЕСНЯ: <b>${sng}</b></div>
+                <div style="font-size:14px; color:var(--accent); margin-top:10px">ПЕСНЯ: <b>${sng}</b></div>
                 <div class="eval-btns" id="btns-song-${safeId}">
                     <button class="btn-v" onclick="evalAns('${safeId}', 'song', 1, ${lvl})">✅</button>
                     <button class="btn-c" onclick="evalAns('${safeId}', 'song', 0.5, ${lvl})">⚠️</button>
