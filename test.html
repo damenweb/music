@@ -9,18 +9,15 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; --accent: #0078d4; --border: #333333; --danger: #c62828; --answered: #1b78e3; }
+        body { font-family: 'Roboto', sans-serif; background-color: var(--dark-bg); color: var(--text-color); margin: 0; display: flex; height: 100vh; overflow: hidden; }
         
-        /* Скрываем body по умолчанию для защиты */
-        body { 
-            display: none; 
-            font-family: 'Roboto', sans-serif; 
-            background-color: var(--dark-bg); 
-            color: var(--text-color); 
-            margin: 0; 
-            height: 100vh; 
-            overflow: hidden; 
-        }
-        
+        /* Авторизация */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .login-box { background: #1e1e1e; padding: 40px; border-radius: 12px; border: 1px solid var(--accent); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .login-box input { display: block; width: 250px; padding: 12px; margin: 20px 0; background: #000; border: 1px solid #444; color: white; text-align: center; font-size: 16px; border-radius: 4px; }
+        .btn-login { background: var(--accent); color: white; border: none; padding: 12px 24px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; }
+        .btn-login:hover { opacity: 0.9; }
+
         .game-section { width: 70%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--border); position: relative; }
         .players-section { width: 30%; padding: 20px; background-color: var(--panel-bg); display: flex; flex-direction: column; overflow-y: auto; }
         
@@ -56,6 +53,7 @@
         .eval-btns { display: flex; gap: 5px; margin-top: 5px; }
         .eval-btns button { flex: 1; padding: 8px; cursor: pointer; border: none; border-radius: 3px; font-size: 16px; color: white; }
         .btn-v { background: #2e7d32; } .btn-c { background: #f9a825; } .btn-n { background: #c62828; }
+        .eval-btns button:disabled { opacity: 0.2; cursor: default; }
 
         #settings-panel { width: 95%; margin-top: 20px; padding: 15px; border: 1px solid #444; background: #1a1a1a; display: none; }
         .settings-table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -64,6 +62,15 @@
     </style>
 </head>
 <body>
+
+<div id="login-screen">
+    <div class="login-box">
+        <h2 style="margin-top:0">Quiz Admin Panel</h2>
+        <input type="password" id="admin-password" placeholder="Введите пароль" onkeydown="if(event.key==='Enter') login()">
+        <button class="btn-login" onclick="login()">ВОЙТИ</button>
+        <p id="login-error" style="color:var(--danger); font-size:12px; margin-top:15px; display:none;">❌ Неверный пароль</p>
+    </div>
+</div>
 
 <div id="chat-sidebar"></div>
 
@@ -97,11 +104,6 @@
         <button class="btn-nav" onclick="changeTrack(1)">⏭</button>
     </div>
     
-    <div><p style="color: #777; font-size: 14px; margin-top: 20px; font-style: italic; text-align: center; max-width: 400px;">
-        У вас лишь одна попытка дать ответ за раунд. <br> 
-        Так что сами решайте, на каком из трех этапов отвечать.
-    </p></div>
-    
     <div id="settings-panel">
         <table class="settings-table">
             <thead>
@@ -127,58 +129,47 @@
     let playlist = [], currentIndex = 0, ytPlayer, timerId, playTimeout, currentDuration = 0, isAnswerShown = false;
     let defaultVolume = 50;
 
-    // --- БЛОК АВТОРИЗАЦИИ ---
-    async function checkAuth() {
-        const pass = prompt("Введите пароль администратора:");
-        if (!pass) {
-            alert("Доступ запрещен");
-            window.location.reload();
-            return;
-        }
+    // --- АВТОРИЗАЦИЯ ---
+    async function login() {
+        const passInput = document.getElementById('admin-password');
+        const errorMsg = document.getElementById('login-error');
+        const password = passInput.value;
 
         try {
             const { data, error } = await supabaseClient
                 .from('quiz_users')
                 .select('password')
-                .eq('username', 'admin') // ИСПРАВЛЕНО: username вместо login
+                .eq('username', 'admin')
                 .single();
 
-            if (error || !data) {
-                console.error("Supabase error:", error);
-                alert("Пользователь admin не найден в базе данных.");
-                return;
-            }
+            if (error) throw error;
 
-            if (data.password === pass) {
-                document.body.style.display = 'flex';
-                initApp();
+            if (data && data.password === password) {
+                document.getElementById('login-screen').style.display = 'none';
+                sessionStorage.setItem('quiz_authorized', 'true');
             } else {
-                alert("Неверный пароль!");
-                window.location.reload();
+                errorMsg.style.display = 'block';
+                passInput.value = '';
             }
-        } catch (e) {
-            alert("Ошибка сети или базы данных.");
+        } catch (err) {
+            console.error("Auth error:", err);
+            alert("Ошибка доступа. Проверьте таблицу quiz_users в Supabase.");
         }
     }
 
-    // Инициализация после входа
-    function initApp() {
-        // Слушаем чат
-        supabaseClient.channel('quiz_chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_chat' }, payload => {
-            handleIncomingMessage(payload.new);
-        }).subscribe();
+    // Проверка сессии при загрузке
+    window.addEventListener('DOMContentLoaded', () => {
+        if (sessionStorage.getItem('quiz_authorized') === 'true') {
+            document.getElementById('login-screen').style.display = 'none';
+        }
+    });
 
-        // Обработчик закрытия баров при клике
-        document.addEventListener('click', (e) => {
-            const openBar = document.querySelector('.chat-bar.open');
-            if (openBar && !openBar.contains(e.target)) closeBar(openBar);
-        });
-    }
+    // --- ЛОГИКА ИНТЕРФЕЙСА ---
+    document.addEventListener('click', (e) => {
+        const openBar = document.querySelector('.chat-bar.open');
+        if (openBar && !openBar.contains(e.target)) closeBar(openBar);
+    });
 
-    // Запускаем проверку при загрузке
-    checkAuth();
-
-    // --- ФУНКЦИИ ИНТЕРФЕЙСА ---
     function closeBar(bar) {
         bar.classList.remove('open');
         const evalSection = bar.querySelector('.eval-section');
@@ -231,6 +222,11 @@
         document.querySelectorAll('.player-row').forEach(row => row.classList.remove('is-answered'));
     }
 
+    // --- СИНХРОНИЗАЦИЯ SUPABASE ---
+    supabaseClient.channel('quiz_chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_chat' }, payload => {
+        handleIncomingMessage(payload.new);
+    }).subscribe();
+
     function handleIncomingMessage(data) {
         const rawName = data.player_name;
         const loginMatch = rawName.match(/\((.*?)\)/);
@@ -254,7 +250,7 @@
                         <span class="player-login-text">@${login}</span>
                     </div>
                     <input type="number" class="score-input" value="0" id="score-${login}" onchange="updateRowScore('${login}', this.value)">
-                    <button class="btn-delete-user" onclick="deletePlayer('${login}')" title="Удалить игрока">🗑</button>
+                    <button class="btn-delete-user" onclick="deletePlayer('${login}')">🗑</button>
                 </div>`;
             list.insertAdjacentHTML('beforeend', html);
             row = document.getElementById(`row-user-${login}`);
@@ -266,7 +262,7 @@
     }
 
     function deletePlayer(login) {
-        if (confirm(`Удалить игрока @${login} из списка?`)) {
+        if (confirm(`Удалить @${login}?`)) {
             const row = document.getElementById(`row-user-${login}`);
             if (row) row.remove();
         }
@@ -302,9 +298,9 @@
         bar.dataset.aEval = "-1"; bar.dataset.sEval = "-1";
 
         bar.innerHTML = `
-            <div style="font-size:14px; opacity:0.8; pointer-events:none;">👤 ${nickname}</div>
+            <div style="font-size:14px; opacity:0.8;">👤 ${nickname}</div>
             <div class="eval-section" style="display:none;">
-                <div style="font-size:14px; color:var(--accent)">АРТИСТ: <b>${art}</b></div>
+                <div style="font-size:14px; color:var(--accent)">АРТ: <b>${art}</b></div>
                 <div class="eval-btns" id="btns-art-${safeId}">
                     <button class="btn-v" onclick="evalAns('${safeId}', 'art', 1, ${lvl})">✅</button>
                     <button class="btn-c" onclick="evalAns('${safeId}', 'art', 0.5, ${lvl})">☑️</button>
@@ -361,6 +357,7 @@
         triggerBeep(1000, 0.05);
     }
 
+    // --- GAME LOGIC ---
     async function changeTrack(dir) {
         if (playlist.length === 0) return;
         let newIdx = currentIndex + dir;
@@ -413,8 +410,7 @@
     
     function onYouTubeIframeAPIReady() {
         ytPlayer = new YT.Player('yt-player', { 
-            height: '1', 
-            width: '1', 
+            height: '1', width: '1', 
             playerVars: { 'autoplay': 0, 'controls': 0 },
             events: { 
                 'onReady': (e) => { e.target.setVolume(defaultVolume); },
