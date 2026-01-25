@@ -140,16 +140,16 @@
             const { data, error } = await supabaseClient
                 .from('quiz_users')
                 .select('password')
-                .eq('login', 'admin')
+                .eq('username', 'admin') // ИСПРАВЛЕНО: username вместо login
                 .single();
 
             if (error || !data) {
+                console.error("Supabase error:", error);
                 alert("Пользователь admin не найден в базе данных.");
                 return;
             }
 
             if (data.password === pass) {
-                // Разрешаем доступ и запускаем приложение
                 document.body.style.display = 'flex';
                 initApp();
             } else {
