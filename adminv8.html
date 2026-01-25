@@ -22,7 +22,7 @@
         #timer-display { font-size: 140px; font-weight: 200; margin-bottom: 10px; font-family: monospace; color: var(--accent); }
         
         .play-row { display: flex; gap: 15px; margin-bottom: 30px; }
-        .btn-main { width: 100px; height: 100px; border-radius: 50%; border: none; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); color: white; }
+        .btn-main { width: 100px; height: 100px; border-radius: 50%; border: none; cursor: pointer; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); color: white; }
         .gold { background: var(--gold); } .silver { background: var(--silver); } .bronze { background: var(--bronze); } .full-play { background: var(--accent); }
         
         #answer-box { font-size: 28px; font-weight: bold; text-align: center; margin-bottom: 15px; min-height: 40px; color: var(--gold); }
@@ -233,15 +233,15 @@
         bar.dataset.aEval = "-1"; bar.dataset.sEval = "-1";
 
         bar.innerHTML = `
-            <div style="font-size:11px; opacity:0.8; pointer-events:none;">👤 ${data.player_name}</div>
+            <div style="font-size:14px; opacity:0.8; pointer-events:none;">👤 ${data.player_name}</div>
             <div class="eval-section" style="display:none;">
-                <div style="font-size:10px; color:var(--accent)">АРТИСТ: <b>${art}</b></div>
+                <div style="font-size:14px; color:var(--accent)">АРТИСТ: <b>${art}</b></div>
                 <div class="eval-btns" id="btns-art-${safeId}">
                     <button class="btn-v" onclick="evalAns('${safeId}', 'art', 1, ${lvl})">✅</button>
                     <button class="btn-c" onclick="evalAns('${safeId}', 'art', 0.5, ${lvl})">⚠️</button>
                     <button class="btn-n" onclick="evalAns('${safeId}', 'art', 0, ${lvl})">❌</button>
                 </div>
-                <div style="font-size:10px; color:var(--accent); margin-top:10px">ПЕСНЯ: <b>${sng}</b></div>
+                <div style="font-size:14px; color:var(--accent); margin-top:10px">ПЕСНЯ: <b>${sng}</b></div>
                 <div class="eval-btns" id="btns-song-${safeId}">
                     <button class="btn-v" onclick="evalAns('${safeId}', 'song', 1, ${lvl})">✅</button>
                     <button class="btn-c" onclick="evalAns('${safeId}', 'song', 0.5, ${lvl})">⚠️</button>
