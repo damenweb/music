@@ -1,156 +1,199 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>YouTube Audio Player (Excel)</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #121212; color: white; font-family: 'Roboto', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .box { background: #1e1e1e; padding: 25px; border-radius: 15px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
+        input { width: 100%; padding: 15px; margin: 10px 0; background: #2b2b2b; border: 1px solid #444; color: white; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none; }
+        input:focus { border-color: #0078d4; }
+        button { width: 100%; padding: 15px; background: #0078d4; border: none; color: white; font-weight: bold; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 5px; transition: 0.2s; }
+        button:active { transform: scale(0.98); }
+        button:disabled { background: #333; color: #777; cursor: not-allowed; transform: none; }
+        .btn-edit { background: transparent; color: #888; font-size: 12px; text-decoration: underline; margin-top: 10px; width: auto; padding: 5px; border: none; cursor: pointer; }
+        .hidden { display: none; }
+        #status { margin-top: 15px; font-size: 0.9em; color: #888; min-height: 1.2em; }
 
-  <!-- SheetJS -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-  <!-- YouTube IFrame API -->
-  <script src="https://www.youtube.com/iframe_api"></script>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    button {
-      padding: 10px 16px;
-      font-size: 16px;
-      margin-right: 10px;
-    }
-    #status {
-      margin-top: 15px;
-      color: #555;
-    }
-    /* скрываем видео полностью */
-    #player {
-      width: 0;
-      height: 0;
-      overflow: hidden;
-    }
-  </style>
+        /* ТАЙМЕР */
+        #player-timer {
+            font-size: 64px; font-weight: bold; color: #0078d4; 
+            margin-bottom: 10px; font-family: monospace;
+        }
+        .timer-low { color: #ff4d4d !important; }
+        
+        .lvl-indicator { font-size: 12px; color: #D4AF37; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+    </style>
 </head>
 <body>
 
-<h2>YouTube Audio из Excel</h2>
+    <div id="auth-screen" class="box">
+        <h2>Вход в Quiz</h2>
+        <input type="email" id="email" placeholder="Логин (player1@quiz.com)">
+        <input type="password" id="password" placeholder="Пароль">
+        <button onclick="signIn()">Войти</button>
+        <div id="auth-status" style="color: #ff4d4d; margin-top: 10px;"></div>
+    </div>
 
-<input type="file" id="fileInput" accept=".xlsx,.xls">
-<br><br>
-<button id="playBtn" disabled>Play (3 сек)</button>
+    <div id="name-screen" class="box hidden">
+        <h2>Твоё имя</h2>
+        <input type="text" id="pName" placeholder="Введи имя для таблицы...">
+        <button onclick="saveName()">Сохранить</button>
+    </div>
 
-<div id="status">Загрузите Excel-файл</div>
+    <div id="game-screen" class="box hidden">
+        <div id="lvl-badge" class="lvl-indicator">ОЖИДАНИЕ ТРЕКА</div>
+        <div id="player-timer">00</div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span id="display-name" style="font-weight: bold; color: #0078d4;"></span>
+            <button class="btn-edit" onclick="editName()">Изм.</button>
+        </div>
 
-<div id="player"></div>
+        <input type="text" id="pAns" placeholder="Твой ответ...">
+        <button id="sendBtn" onclick="send()" disabled>Отправить ответ</button>
+        <div id="status">Ждем начала раунда...</div>
+    </div>
 
-<script>
-let links = [];
-let currentIndex = 0;
-let player = null;
-let playerReady = false;
+    <script>
+        const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+        const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+        const supabaseClient = supabase.createClient(S_URL, S_KEY);
 
-// ---------- YouTube API (ГЛОБАЛЬНО) ----------
-window.onYouTubeIframeAPIReady = function () {
-  player = new YT.Player('player', {
-    height: '0',
-    width: '0',
-    videoId: '',
-    playerVars: {
-      autoplay: 0,
-      controls: 0,
-      disablekb: 1,
-      fs: 0,
-      modestbranding: 1,
-      rel: 0
-    },
-    events: {
-      onReady: function () {
-        playerReady = true;
-        document.getElementById('status').textContent =
-          'YouTube плеер готов';
-      }
-    }
-  });
-};
+        let mySavedName = localStorage.getItem('quiz_player_name');
+        let myLogin = "";
+        let localTimerId;
+        let currentLvlPrefix = ""; 
+        let hasSentAnswer = false; // Флаг, ограничивающий ответ 1 раз за трек
 
-// ---------- Excel ----------
-document.getElementById('fileInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+        window.onload = async () => {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (user) handleUserSession(user);
+        };
 
-  try {
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        async function signIn() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) document.getElementById('auth-status').innerText = "Ошибка: " + error.message;
+            else handleUserSession(data.user);
+        }
 
-    links = rows
-      .map(r => r[0])
-      .filter(v => typeof v === 'string' && v.includes('youtu'));
+        function handleUserSession(user) {
+            myLogin = user.email.split('@')[0];
+            document.getElementById('auth-screen').classList.add('hidden');
+            if (!mySavedName) {
+                document.getElementById('name-screen').classList.remove('hidden');
+            } else {
+                startGame();
+            }
+        }
 
-    if (!links.length) {
-      throw new Error('Нет YouTube ссылок в первом столбце');
-    }
+        function saveName() {
+            const name = document.getElementById('pName').value.trim();
+            if (!name) return alert("Введите имя!");
+            mySavedName = name;
+            localStorage.setItem('quiz_player_name', name);
+            document.getElementById('name-screen').classList.add('hidden');
+            startGame();
+        }
 
-    currentIndex = 0;
-    document.getElementById('playBtn').disabled = false;
-    document.getElementById('status').textContent =
-      `Файл загружен. Треков: ${links.length}`;
+        function editName() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('name-screen').classList.remove('hidden');
+            document.getElementById('pName').value = mySavedName;
+        }
 
-  } catch (err) {
-    document.getElementById('status').textContent =
-      'Ошибка Excel: ' + err.message;
-  }
-});
+        function startGame() {
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('display-name').innerText = mySavedName;
+        }
 
-// ---------- Play ----------
-document.getElementById('playBtn').addEventListener('click', () => {
-  if (!player || !playerReady) {
-    alert('YouTube плеер ещё загружается, подождите 1–2 секунды');
-    return;
-  }
+        // ОТПРАВКА ОТВЕТА
+        async function send() {
+            if (hasSentAnswer) return; // Если уже отвечал — выходим
 
-  if (currentIndex >= links.length) {
-    document.getElementById('status').textContent = 'Список закончился';
-    return;
-  }
+            const input = document.getElementById('pAns');
+            const btn = document.getElementById('sendBtn');
+            const text = input.value.trim();
+            if(!text) return;
 
-  const videoId = extractVideoId(links[currentIndex]);
-  if (!videoId) {
-    currentIndex++;
-    return;
-  }
+            hasSentAnswer = true; // Ставим флаг блокировки
+            btn.disabled = true; 
+            document.getElementById('status').innerText = "Ответ принят! Жди следующий трек.";
+            
+            // Формируем имя с префиксом LVL
+            const fullName = `${currentLvlPrefix}${mySavedName} (${myLogin})`;
+            
+            await supabaseClient.from('quiz_chat').insert([
+                { player_name: fullName, message: text }
+            ]);
+        }
 
-  document.getElementById('status').textContent =
-    `▶ ${currentIndex + 1} / ${links.length}`;
+        const channel = supabaseClient.channel('quiz_chat');
 
-  player.loadVideoById(videoId);
-  player.playVideo();
+        // 1. СБРОС (когда админ переключает трек - DELETE)
+        channel.on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'quiz_chat' }, () => {
+            hasSentAnswer = false; // СБРАСЫВАЕМ ФЛАГ ОТВЕТА
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('pAns').value = "";
+            document.getElementById('status').innerText = "Новый раунд. Жди кнопку!";
+            document.getElementById('lvl-badge').innerText = "ОЖИДАНИЕ ТРЕКА";
+            currentLvlPrefix = "";
+            clearInterval(localTimerId);
+            document.getElementById('player-timer').innerText = "00";
+            document.getElementById('player-timer').classList.remove('timer-low');
+        });
 
-  setTimeout(() => {
-    player.stopVideo();
-    currentIndex++;
-  }, 3000);
-});
+        // 2. СИГНАЛ ТАЙМЕРА (BROADCAST)
+        channel.on('broadcast', { event: 'start_timer' }, (payload) => {
+            const sec = payload.payload.sec;
+            currentLvlPrefix = payload.payload.lvl || ""; 
 
-// ---------- helper ----------
-function extractVideoId(url) {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes('youtu.be')) {
-      return u.pathname.slice(1);
-    }
-    if (u.hostname.includes('youtube.com')) {
-      return u.searchParams.get('v');
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-</script>
+            if (sec > 0) {
+                // Разблокируем только если игрок еще НЕ отвечал в этом раунде
+                if (!hasSentAnswer) {
+                    document.getElementById('sendBtn').disabled = false;
+                    document.getElementById('status').innerText = "Кнопка активна! Пиши!";
+                } else {
+                    document.getElementById('status').innerText = "Ты уже ответил в этом раунде.";
+                }
+                
+                document.getElementById('lvl-badge').innerText = currentLvlPrefix ? "АКТИВЕН " + currentLvlPrefix : "ПОЛНАЯ ВЕРСИЯ";
+                startLocalTimer(sec);
+            } else {
+                stopGameAction();
+            }
+        }).subscribe();
 
+        function stopGameAction() {
+            clearInterval(localTimerId);
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('player-timer').innerText = "00";
+            if (!hasSentAnswer) {
+                document.getElementById('status').innerText = "Время вышло!";
+            }
+        }
 
+        function startLocalTimer(seconds) {
+            clearInterval(localTimerId);
+            let left = seconds;
+            const timerEl = document.getElementById('player-timer');
+            timerEl.classList.remove('timer-low');
+            timerEl.innerText = left < 10 ? '0' + left : left;
+
+            localTimerId = setInterval(() => {
+                left--;
+                if (left <= 0) {
+                    stopGameAction();
+                } else {
+                    timerEl.innerText = left < 10 ? '0' + left : left;
+                    if (left <= 5) timerEl.classList.add('timer-low');
+                }
+            }, 1000);
+        }
+    </script>
 </body>
 </html>
