@@ -127,7 +127,7 @@
     const supabaseClient = supabase.createClient(S_URL, S_KEY);
 
     let playlist = [], currentIndex = 0, ytPlayer, timerId, playTimeout, currentDuration = 0, isAnswerShown = false;
-    let defaultVolume = 50;
+    let defaultVolume = 20;
 
     // --- АВТОРИЗАЦИЯ ---
     async function login() {
@@ -375,21 +375,40 @@
         if(ytPlayer) ytPlayer.stopVideo();
     }
 
-    function handlePlay(type) {
-        if (!playlist[currentIndex]) return;
-        const row = playlist[currentIndex];
-        const vid = extractVideoId(row[0].toString());
-        let dur, tSec, lp;
-        if (type === 3) { dur = 60; tSec = 60; lp = ""; }
-        else {
-            dur = parseFloat(document.querySelector(`#row-lvl-${type} .set-dur`).value);
-            tSec = parseInt(document.querySelector(`#row-lvl-${type} .set-timer`).value);
-            lp = `LVL${type + 1} `;
-        }
-        currentDuration = dur;
-        ytPlayer.loadVideoById({ videoId: vid, startSeconds: (type === 3 ? row[2] : row[2+type]) || 0 });
-        runTimer(tSec, lp);
+function handlePlay(type) {
+    if (!playlist[currentIndex] || !ytPlayer) return;
+    
+    const row = playlist[currentIndex];
+    const vid = extractVideoId(row[0].toString());
+    
+    let dur, tSec, lp;
+    if (type === 3) { 
+        dur = 60; tSec = 60; lp = ""; 
+    } else {
+        dur = parseFloat(document.querySelector(`#row-lvl-${type} .set-dur`).value);
+        tSec = parseInt(document.querySelector(`#row-lvl-${type} .set-timer`).value);
+        lp = `LVL${type + 1} `;
     }
+    
+    currentDuration = dur;
+    
+    // СНАЧАЛА проверяем, загружено ли уже это видео
+    const currentUrl = ytPlayer.getVideoUrl() || "";
+    if (currentUrl.includes(vid)) {
+        // Если видео то же самое, просто прыгаем в нужную секунду
+        const startSec = (type === 3 ? row[2] : row[2+type]) || 0;
+        ytPlayer.seekTo(startSec, true);
+        ytPlayer.playVideo();
+    } else {
+        // Если видео новое, загружаем его
+        ytPlayer.loadVideoById({ 
+            videoId: vid, 
+            startSeconds: (type === 3 ? row[2] : row[2+type]) || 0 
+        });
+    }
+    
+    runTimer(tSec, lp);
+}
 
     function runTimer(sec, lvl) {
         supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec, lvl } });
@@ -410,33 +429,36 @@
 
     function toggleSettings() { const p = document.getElementById('settings-panel'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; }
     function extractVideoId(url) {
-        // Эта версия из старого кода надежнее
+        if (!url) return null;
         const m = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?([0-9A-Za-z_-]{11})/);
-        return m ? m[1] : null;
+        if (m) return m[1];
+        // Запасной вариант для коротких ссылок
+        const short = url.match(/youtu\.be\/([0-9A-Za-z_-]{11})/);
+        return short ? short[1] : null;
     }
     function triggerBeep(f, d) { try { const a=new AudioContext(); const o=a.createOscillator(); const g=a.createGain(); o.frequency.value=f; g.gain.exponentialRampToValueAtTime(0.01, a.currentTime+d); o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+d); } catch(e){} }
     
-    function onYouTubeIframeAPIReady() {
-        ytPlayer = new YT.Player('yt-player', { 
-            height: '1', width: '1', 
-            playerVars: { 
-                'autoplay': 0, 
-                'controls': 0,
-                'origin': window.location.origin, // Добавь это
-                'enablejsapi': 1                  // И это
-            },
-            events: { 
-                'onReady': (e) => { e.target.setVolume(defaultVolume); },
-                'onStateChange': (e) => { 
-                    if (e.data == YT.PlayerState.PLAYING) { 
-                        // Убрали лишний setVolume здесь
-                        clearTimeout(playTimeout); 
-                        playTimeout = setTimeout(() => ytPlayer.pauseVideo(), currentDuration * 1000); 
-                    }
-                } 
-            }
-        });
-    }
+function onYouTubeIframeAPIReady() {
+    ytPlayer = new YT.Player('yt-player', { 
+        height: '1', width: '1', 
+        playerVars: { 
+            'autoplay': 0, 
+            'controls': 0, 
+            'origin': window.location.origin,
+            'enablejsapi': 1 
+        },
+        events: { 
+            'onReady': (e) => { e.target.setVolume(defaultVolume); },
+            'onStateChange': (e) => { 
+                // Только останавливаем по таймеру, не трогаем громкость здесь
+                if (e.data == YT.PlayerState.PLAYING) { 
+                    clearTimeout(playTimeout); 
+                    playTimeout = setTimeout(() => ytPlayer.pauseVideo(), currentDuration * 1000); 
+                }
+            } 
+        }
+    });
+}
 </script>
 <script src="https://www.youtube.com/iframe_api"></script>
 </body>
