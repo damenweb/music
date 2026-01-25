@@ -119,7 +119,7 @@
             document.getElementById('sendBtn').disabled = true;
             document.getElementById('status').innerText = "Ответ принят! Откинься на спинку кресла и жди следующую песню 😎";
             
-            const fullName = `${currentLvlPrefix}${mySavedName}`;
+            const fullName = `${currentLvlPrefix}${mySavedName} (${myLogin})`;
             const message = `${artist} | ${song}`;
             await supabaseClient.from('quiz_chat').insert([{ player_name: fullName, message: message }]);
         }
