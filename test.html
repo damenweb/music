@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админка - Quiz</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; --accent: #0078d4; --border: #333333; --danger: #c62828; --answered: #1b78e3; }
+        
+        /* Скрываем body по умолчанию для защиты */
+        body { 
+            display: none; 
+            font-family: 'Roboto', sans-serif; 
+            background-color: var(--dark-bg); 
+            color: var(--text-color); 
+            margin: 0; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+        
+        .game-section { width: 70%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--border); position: relative; }
+        .players-section { width: 30%; padding: 20px; background-color: var(--panel-bg); display: flex; flex-direction: column; overflow-y: auto; }
+        
+        .upload-area { position: absolute; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .top-right-actions { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; }
+        .btn-action { background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; cursor: pointer; font-size: 12px; text-transform: uppercase; }
+        
+        #track-counter { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+        #timer-display { font-size: 140px; font-weight: 200; margin-bottom: 10px; font-family: monospace; color: var(--accent); }
+        
+        .play-row { display: flex; gap: 15px; margin-bottom: 30px; }
+        .btn-main { width: 100px; height: 100px; border-radius: 50%; border: none; cursor: pointer; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); color: white; }
+        .gold { background: var(--gold); } .silver { background: var(--silver); } .bronze { background: var(--bronze); } .full-play { background: var(--accent); }
+        
+        #answer-box { font-size: 28px; font-weight: bold; text-align: center; margin-bottom: 15px; min-height: 40px; color: var(--gold); }
+        .nav-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .btn-nav { padding: 10px 25px; background: #333; color: #fff; border: none; cursor: pointer; font-weight: bold; font-size: 16px; border-radius: 2px; }
+
+        .player-row { display: flex; align-items: center; justify-content: space-between; background: #252525; padding: 12px; margin-bottom: 6px; border-radius: 4px; border-left: 4px solid var(--accent); transition: background-color 0.3s; }
+        .player-row.is-answered { background-color: var(--answered); }
+        .player-info { display: flex; flex-direction: column; flex: 1; }
+        .player-name-text { font-size: 18px; font-weight: bold; color: #fff; }
+        .player-login-text { font-size: 12px; color: #777; margin-top: 2px; }
+        .score-input { width: 80px; background: #000; border: 1px solid var(--accent); color: #fff; padding: 8px 0; text-align: center; font-weight: bold; font-size: 18px; border-radius: 2px; margin-right: 10px; }
+        
+        .btn-delete-user { background: none; border: none; color: #555; cursor: pointer; font-size: 18px; padding: 5px; transition: 0.2s; }
+        .btn-delete-user:hover { color: var(--danger); }
+
+        #chat-sidebar { position: fixed; left: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 9999; pointer-events: none; }
+        .chat-bar { background: rgba(30, 30, 30, 0.98); border: 2px solid var(--accent); color: white; padding: 12px; border-radius: 8px; width: 180px; transition: 0.2s; pointer-events: auto; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+        .chat-bar.open { width: 350px; }
+        .eval-section { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
+        .eval-btns { display: flex; gap: 5px; margin-top: 5px; }
+        .eval-btns button { flex: 1; padding: 8px; cursor: pointer; border: none; border-radius: 3px; font-size: 16px; color: white; }
+        .btn-v { background: #2e7d32; } .btn-c { background: #f9a825; } .btn-n { background: #c62828; }
+
+        #settings-panel { width: 95%; margin-top: 20px; padding: 15px; border: 1px solid #444; background: #1a1a1a; display: none; }
+        .settings-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .settings-table th, .settings-table td { padding: 5px; border: 1px solid #333; text-align: center; }
+        .settings-table input { width: 45px; background: #222; border: 1px solid #555; color: #fff; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div id="chat-sidebar"></div>
+
+<div class="game-section">
+    <div class="upload-area">
+        <input type="file" id="excel-file" hidden accept=".xlsx, .xls">
+        <button class="btn-action" onclick="document.getElementById('excel-file').click()">Файл</button>
+        <input type="text" id="gsheets-url" style="background:#121212; border:1px solid #444; color:white; padding:8px; border-radius:2px; width: 150px;" placeholder="CSV URL">
+        <button class="btn-action" onclick="loadFromGSheets()">Загрузить</button>
+    </div>
+
+    <div class="top-right-actions">
+        <button class="btn-action" onclick="toggleSettings()">Настройки</button>
+    </div>
+
+    <div id="track-counter">Песня 0/0</div>
+    <div id="timer-display">00</div>
+    
+    <div class="play-row">
+        <button class="btn-main gold" onclick="handlePlay(0)">▶ LVL1</button>
+        <button class="btn-main silver" onclick="handlePlay(1)">▶ LVL2</button>
+        <button class="btn-main bronze" onclick="handlePlay(2)">▶ LVL3</button>
+        <button class="btn-main full-play" onclick="handlePlay(3)">▶</button>
+    </div>
+
+    <div id="answer-box">******</div>
+
+    <div class="nav-row">
+        <button class="btn-nav" onclick="changeTrack(-1)">⏮</button>
+        <button id="toggle-ans-btn" class="btn-nav" style="background: var(--accent)" onclick="toggleAnswer()">Показать ответ</button>
+        <button class="btn-nav" onclick="changeTrack(1)">⏭</button>
+    </div>
+    
+    <div><p style="color: #777; font-size: 14px; margin-top: 20px; font-style: italic; text-align: center; max-width: 400px;">
+        У вас лишь одна попытка дать ответ за раунд. <br> 
+        Так что сами решайте, на каком из трех этапов отвечать.
+    </p></div>
+    
+    <div id="settings-panel">
+        <table class="settings-table">
+            <thead>
+                <tr><th>Этап</th> <th>Длительность</th> <th>Время на ответ</th> <th>Очки за артиста</th> <th>Очки за песню</th> <th>Коэф. за неточность</th> <th>Бонус за комбо</th></tr>
+            </thead>
+            <tbody>
+                <tr id="row-lvl-0"><td>LVL 1</td><td><input type="number" step="0.1" class="set-dur" value="1.5"></td><td><input type="number" class="set-timer" value="20"></td><td>+ <input type="number" class="set-pArt" value="4"></td><td>+ <input type="number" class="set-pSong" value="4"></td><td>x <input type="number" step="0.1" class="set-debuff" value="0.5"></td><td>+ <input type="number" class="set-combo" value="2"></td></tr>
+                <tr id="row-lvl-1"><td>LVL 2</td><td><input type="number" step="0.1" class="set-dur" value="5.0"></td><td><input type="number" class="set-timer" value="25"></td><td>+ <input type="number" class="set-pArt" value="2"></td><td>+ <input type="number" class="set-pSong" value="2"></td><td>x <input type="number" step="0.1" class="set-debuff" value="0.5"></td><td>+ <input type="number" class="set-combo" value="1"></td></tr>
+                <tr id="row-lvl-2"><td>LVL 3</td><td><input type="number" step="0.1" class="set-dur" value="12.0"></td><td><input type="number" class="set-timer" value="30"></td><td>+ <input type="number" class="set-pArt" value="1"></td><td>+ <input type="number" class="set-pSong" value="1"></td><td>x <input type="number" step="0.1" class="set-debuff" value="0.5"></td><td>+ <input type="number" class="set-combo" value="0.5"></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="players-section"><div id="players-list"></div></div>
+<div id="player-api-container" style="display:none;"><div id="yt-player"></div></div>
+
+<script>
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    let playlist = [], currentIndex = 0, ytPlayer, timerId, playTimeout, currentDuration = 0, isAnswerShown = false;
+    let defaultVolume = 50;
+
+    // --- БЛОК АВТОРИЗАЦИИ ---
+    async function checkAuth() {
+        const pass = prompt("Введите пароль администратора:");
+        if (!pass) {
+            alert("Доступ запрещен");
+            window.location.reload();
+            return;
+        }
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('quiz_users')
+                .select('password')
+                .eq('login', 'admin')
+                .single();
+
+            if (error || !data) {
+                alert("Пользователь admin не найден в базе данных.");
+                return;
+            }
+
+            if (data.password === pass) {
+                // Разрешаем доступ и запускаем приложение
+                document.body.style.display = 'flex';
+                initApp();
+            } else {
+                alert("Неверный пароль!");
+                window.location.reload();
+            }
+        } catch (e) {
+            alert("Ошибка сети или базы данных.");
+        }
+    }
+
+    // Инициализация после входа
+    function initApp() {
+        // Слушаем чат
+        supabaseClient.channel('quiz_chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_chat' }, payload => {
+            handleIncomingMessage(payload.new);
+        }).subscribe();
+
+        // Обработчик закрытия баров при клике
+        document.addEventListener('click', (e) => {
+            const openBar = document.querySelector('.chat-bar.open');
+            if (openBar && !openBar.contains(e.target)) closeBar(openBar);
+        });
+    }
+
+    // Запускаем проверку при загрузке
+    checkAuth();
+
+    // --- ФУНКЦИИ ИНТЕРФЕЙСА ---
+    function closeBar(bar) {
+        bar.classList.remove('open');
+        const evalSection = bar.querySelector('.eval-section');
+        if (evalSection) evalSection.style.display = 'none';
+    }
+
+    document.getElementById('excel-file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const wb = XLSX.read(event.target.result, { type: 'binary' });
+            fullReset().then(() => processData(wb));
+        };
+        reader.readAsBinaryString(file);
+    });
+
+    async function loadFromGSheets() { 
+        const url = document.getElementById('gsheets-url').value;
+        if (!url) return alert("Вставьте ссылку CSV!");
+        try { 
+            const r = await fetch(url); 
+            const t = await r.text(); 
+            await fullReset();
+            processData(XLSX.read(t, {type:'string'})); 
+        } catch(e){alert("Ошибка загрузки");}
+    }
+
+    async function fullReset() {
+        if(ytPlayer) ytPlayer.stopVideo();
+        clearInterval(timerId);
+        document.getElementById('timer-display').innerText = "00";
+        document.getElementById('players-list').innerHTML = '';
+        document.getElementById('chat-sidebar').innerHTML = '';
+        await supabaseClient.from('quiz_chat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec: 0 } });
+    }
+
+    function processData(wb) {
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        playlist = XLSX.utils.sheet_to_json(sheet, {header:1}).filter(r => r[0] && r[0].toString().includes('http'));
+        currentIndex = 0;
+        updateTrackDisplay();
+    }
+
+    function updateTrackDisplay() {
+        document.getElementById('track-counter').innerText = `Песня ${playlist.length > 0 ? currentIndex + 1 : 0}/${playlist.length}`;
+        document.getElementById('answer-box').innerText = "******";
+        isAnswerShown = false;
+        document.querySelectorAll('.player-row').forEach(row => row.classList.remove('is-answered'));
+    }
+
+    function handleIncomingMessage(data) {
+        const rawName = data.player_name;
+        const loginMatch = rawName.match(/\((.*?)\)/);
+        const login = loginMatch ? loginMatch[1] : "unknown";
+        let nickname = rawName.replace(/LVL\d/, "").split(' (')[0].trim();
+        if (nickname.length > 20) nickname = nickname.substring(0, 20);
+
+        syncPlayerRow(login, nickname);
+        displayChatBar(data, login);
+        triggerBeep(880, 0.1);
+    }
+
+    function syncPlayerRow(login, nickname) {
+        const list = document.getElementById('players-list');
+        let row = document.getElementById(`row-user-${login}`);
+        if (!row) {
+            const html = `
+                <div class="player-row" id="row-user-${login}" data-score="0">
+                    <div class="player-info">
+                        <span class="player-name-text">${nickname}</span>
+                        <span class="player-login-text">@${login}</span>
+                    </div>
+                    <input type="number" class="score-input" value="0" id="score-${login}" onchange="updateRowScore('${login}', this.value)">
+                    <button class="btn-delete-user" onclick="deletePlayer('${login}')" title="Удалить игрока">🗑</button>
+                </div>`;
+            list.insertAdjacentHTML('beforeend', html);
+            row = document.getElementById(`row-user-${login}`);
+        } else {
+            row.querySelector('.player-name-text').innerText = nickname;
+        }
+        row.classList.add('is-answered');
+        sortPlayers();
+    }
+
+    function deletePlayer(login) {
+        if (confirm(`Удалить игрока @${login} из списка?`)) {
+            const row = document.getElementById(`row-user-${login}`);
+            if (row) row.remove();
+        }
+    }
+
+    function updateRowScore(login, val) {
+        const row = document.getElementById(`row-user-${login}`);
+        if(row) { row.dataset.score = val; sortPlayers(); }
+    }
+
+    function sortPlayers() {
+        const list = document.getElementById('players-list');
+        const rows = Array.from(list.querySelectorAll('.player-row'));
+        rows.sort((a, b) => parseFloat(b.dataset.score) - parseFloat(a.dataset.score));
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    function displayChatBar(data, login) {
+        const rawName = data.player_name;
+        let nickname = rawName.replace(/LVL\d/, "").split(' (')[0].trim().substring(0, 20);
+        const sidebar = document.getElementById('chat-sidebar');
+        const safeId = btoa(login).replace(/=/g, "");
+        if (document.getElementById(`bar-${safeId}`)) return;
+
+        let lvl = data.player_name.includes("LVL2") ? 1 : (data.player_name.includes("LVL3") ? 2 : 0);
+        const parts = data.message.split(' | ');
+        const art = parts[0] || "---", sng = parts[1] || "---";
+
+        const bar = document.createElement('div');
+        bar.className = 'chat-bar';
+        bar.id = `bar-${safeId}`;
+        bar.dataset.login = login;
+        bar.dataset.aEval = "-1"; bar.dataset.sEval = "-1";
+
+        bar.innerHTML = `
+            <div style="font-size:14px; opacity:0.8; pointer-events:none;">👤 ${nickname}</div>
+            <div class="eval-section" style="display:none;">
+                <div style="font-size:14px; color:var(--accent)">АРТИСТ: <b>${art}</b></div>
+                <div class="eval-btns" id="btns-art-${safeId}">
+                    <button class="btn-v" onclick="evalAns('${safeId}', 'art', 1, ${lvl})">✅</button>
+                    <button class="btn-c" onclick="evalAns('${safeId}', 'art', 0.5, ${lvl})">☑️</button>
+                    <button class="btn-n" onclick="evalAns('${safeId}', 'art', 0, ${lvl})">❌</button>
+                </div>
+                <div style="font-size:14px; color:var(--accent); margin-top:10px">ПЕСНЯ: <b>${sng}</b></div>
+                <div class="eval-btns" id="btns-song-${safeId}">
+                    <button class="btn-v" onclick="evalAns('${safeId}', 'song', 1, ${lvl})">✅</button>
+                    <button class="btn-c" onclick="evalAns('${safeId}', 'song', 0.5, ${lvl})">☑️</button>
+                    <button class="btn-n" onclick="evalAns('${safeId}', 'song', 0, ${lvl})">❌</button>
+                </div>
+            </div>`;
+
+        bar.onclick = (e) => {
+            e.stopPropagation();
+            if (e.target.tagName === 'BUTTON') return;
+            const isOpen = bar.classList.contains('open');
+            document.querySelectorAll('.chat-bar.open').forEach(closeBar);
+            if (!isOpen) {
+                bar.classList.add('open');
+                bar.querySelector('.eval-section').style.display = 'block';
+            }
+        };
+        sidebar.appendChild(bar); 
+    }
+
+    function evalAns(safeId, type, mult, lvl) {
+        const bar = document.getElementById(`bar-${safeId}`);
+        const login = bar.dataset.login;
+        const btns = document.getElementById(`btns-${type}-${safeId}`);
+        btns.querySelectorAll('button').forEach(b => b.disabled = true);
+        
+        const config = document.getElementById(`row-lvl-${lvl}`);
+        const base = parseFloat(config.querySelector(type === 'art' ? '.set-pArt' : '.set-pSong').value);
+        const debuff = parseFloat(config.querySelector('.set-debuff').value);
+        
+        let pts = (mult === 1) ? base : (mult === 0.5 ? base * debuff : 0);
+        if (type === 'art') bar.dataset.aEval = mult; else bar.dataset.sEval = mult;
+        
+        const scoreInp = document.getElementById(`score-${login}`);
+        if(scoreInp) {
+            scoreInp.value = (parseFloat(scoreInp.value) + pts).toFixed(1);
+            updateRowScore(login, scoreInp.value);
+        }
+
+        if (bar.dataset.aEval !== "-1" && bar.dataset.sEval !== "-1") {
+            bar.style.borderColor = "var(--gold)";
+            if (parseFloat(bar.dataset.aEval) > 0 && parseFloat(bar.dataset.sEval) > 0) {
+                const combo = parseFloat(config.querySelector('.set-combo').value);
+                scoreInp.value = (parseFloat(scoreInp.value) + combo).toFixed(1);
+                updateRowScore(login, scoreInp.value);
+            }
+        }
+        triggerBeep(1000, 0.05);
+    }
+
+    async function changeTrack(dir) {
+        if (playlist.length === 0) return;
+        let newIdx = currentIndex + dir;
+        if (newIdx < 0 || newIdx >= playlist.length) return;
+        currentIndex = newIdx;
+        
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec: 0 } });
+        await supabaseClient.from('quiz_chat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        document.getElementById('chat-sidebar').innerHTML = '';
+        updateTrackDisplay();
+        if(ytPlayer) ytPlayer.stopVideo();
+    }
+
+    function handlePlay(type) {
+        if (!playlist[currentIndex]) return;
+        const row = playlist[currentIndex];
+        const vid = extractVideoId(row[0].toString());
+        let dur, tSec, lp;
+        if (type === 3) { dur = 60; tSec = 60; lp = ""; }
+        else {
+            dur = parseFloat(document.querySelector(`#row-lvl-${type} .set-dur`).value);
+            tSec = parseInt(document.querySelector(`#row-lvl-${type} .set-timer`).value);
+            lp = `LVL${type + 1} `;
+        }
+        currentDuration = dur;
+        ytPlayer.loadVideoById({ videoId: vid, startSeconds: (type === 3 ? row[2] : row[2+type]) || 0 });
+        runTimer(tSec, lp);
+    }
+
+    function runTimer(sec, lvl) {
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec, lvl } });
+        clearInterval(timerId);
+        let left = sec;
+        document.getElementById('timer-display').innerText = left;
+        timerId = setInterval(() => {
+            left--; document.getElementById('timer-display').innerText = left < 10 ? '0'+left : left;
+            if (left <= 0) { clearInterval(timerId); }
+        }, 1000);
+    }
+
+    function toggleAnswer() {
+        if (!playlist[currentIndex]) return;
+        isAnswerShown = !isAnswerShown;
+        document.getElementById('answer-box').innerText = isAnswerShown ? (playlist[currentIndex][1] || "---") : "******";
+    }
+
+    function toggleSettings() { const p = document.getElementById('settings-panel'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; }
+    function extractVideoId(url) { const m = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/); return m ? m[1] : null; }
+    function triggerBeep(f, d) { try { const a=new AudioContext(); const o=a.createOscillator(); const g=a.createGain(); o.frequency.value=f; g.gain.exponentialRampToValueAtTime(0.01, a.currentTime+d); o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+d); } catch(e){} }
+    
+    function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('yt-player', { 
+            height: '1', 
+            width: '1', 
+            playerVars: { 'autoplay': 0, 'controls': 0 },
+            events: { 
+                'onReady': (e) => { e.target.setVolume(defaultVolume); },
+                'onStateChange': (e) => { 
+                    if (e.data == YT.PlayerState.PLAYING) { 
+                        e.target.setVolume(defaultVolume);
+                        clearTimeout(playTimeout); 
+                        playTimeout = setTimeout(() => ytPlayer.pauseVideo(), currentDuration * 1000); 
+                    }
+                } 
+            }
+        });
+    }
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
