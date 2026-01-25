@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админка - Quiz</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; --accent: #0078d4; --border: #333333; }
+        body { font-family: 'Roboto', sans-serif; background-color: var(--dark-bg); color: var(--text-color); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        .game-section { width: 55%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--border); position: relative; }
+        .players-section { width: 45%; padding: 20px; background-color: var(--panel-bg); display: flex; flex-direction: column; overflow-y: auto; }
+        .upload-area { position: absolute; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .top-right-actions { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; }
+        .btn-action { background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; cursor: pointer; font-size: 11px; text-transform: uppercase; }
+        #track-counter { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+        #timer-display { font-size: 140px; font-weight: 200; margin-bottom: 10px; font-family: monospace; color: var(--accent); }
+        .play-row { display: flex; gap: 15px; margin-bottom: 30px; }
+        .btn-main { width: 100px; height: 100px; border-radius: 50%; border: none; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); color: white; }
+        .gold { background: var(--gold); } .silver { background: var(--silver); } .bronze { background: var(--bronze); } .full-play { background: var(--accent); }
+        #answer-box { font-size: 28px; font-weight: bold; text-align: center; margin-bottom: 15px; min-height: 40px; color: var(--gold); }
+        .nav-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .btn-nav { padding: 10px 25px; background: #333; color: #fff; border: none; cursor: pointer; font-weight: bold; border-radius: 2px; }
+        #settings-panel { width: 95%; margin-top: 20px; padding: 15px; border: 1px solid #444; background: #1a1a1a; display: none; }
+        .settings-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .settings-table th, .settings-table td { padding: 5px; border: 1px solid #333; text-align: center; }
+        .settings-table input { width: 45px; background: #222; border: 1px solid #555; color: #fff; text-align: center; }
+        .player-row { display: flex; align-items: center; gap: 10px; background: #252525; padding: 10px; margin-bottom: 6px; border-radius: 4px; }
+        .player-name { flex: 1; background: #121212; border: 1px solid #444; color: #fff; padding: 8px; border-radius: 2px; }
+        .score-input { width: 70px; background: #000; border: 1px solid var(--accent); color: #fff; padding: 8px 0; text-align: center; font-weight: bold; font-size: 18px; }
+        #chat-sidebar { position: fixed; left: 20px; bottom: 20px; display: flex; flex-direction: column-reverse; gap: 10px; z-index: 9999; pointer-events: none; }
+        .chat-bar { background: rgba(30, 30, 30, 0.95); border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; width: 180px; transition: 0.3s; pointer-events: auto; cursor: pointer; }
+        .chat-bar.open { width: 350px; border-color: var(--accent); }
+        .eval-section { display: none; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
+        .eval-row { margin-bottom: 10px; }
+        .eval-btns { display: flex; gap: 5px; margin-top: 5px; }
+        .eval-btns button { flex: 1; padding: 8px; cursor: pointer; border: none; border-radius: 3px; font-size: 16px; color: white; }
+        .btn-v { background: #2e7d32; } .btn-c { background: #f9a825; } .btn-n { background: #c62828; }
+        .eval-btns button:disabled { opacity: 0.2; cursor: default; }
+    </style>
+</head>
+<body>
+
+<div id="chat-sidebar"></div>
+
+<div class="game-section">
+    <div class="upload-area">
+        <input type="file" id="excel-file" hidden accept=".xlsx, .xls">
+        <button class="btn-action" onclick="document.getElementById('excel-file').click()">Файл</button>
+        <input type="text" id="gsheets-url" class="player-name" style="width: 150px;" placeholder="CSV URL">
+        <button class="btn-action" onclick="loadFromGSheets()">Загрузить</button>
+    </div>
+
+    <div class="top-right-actions">
+        <button class="btn-action" onclick="toggleSettings()">Настройки</button>
+    </div>
+
+    <div id="track-counter">Песня 0/0</div>
+    <div id="timer-display">00</div>
+    
+    <div class="play-row">
+        <button class="btn-main gold" onclick="handlePlay(0)">▶ LVL1</button>
+        <button class="btn-main silver" onclick="handlePlay(1)">▶ LVL2</button>
+        <button class="btn-main bronze" onclick="handlePlay(2)">▶ LVL3</button>
+        <button class="btn-main full-play" onclick="handlePlay(3)">▶</button>
+    </div>
+
+    <div id="answer-box">******</div>
+
+    <div class="nav-row">
+        <button class="btn-nav" onclick="changeTrack(-1)">⏮</button>
+        <button id="toggle-ans-btn" class="btn-nav" style="background: var(--accent)" onclick="toggleAnswer()">Показать ответ</button>
+        <button class="btn-nav" onclick="changeTrack(1)">⏭</button>
+    </div>
+
+    <div id="settings-panel">
+        <table class="settings-table">
+            <thead>
+                <tr><th>Этап</th> <th>Превью</th> <th>Таймер</th> <th>Артист</th> <th>Песня</th> <th>Дебафф(x)</th> <th>Комбо</th></tr>
+            </thead>
+            <tbody>
+                <tr id="row-lvl-0"><td>LVL 1</td><td><input type="number" step="0.1" class="set-dur" value="1.5"></td><td><input type="number" class="set-timer" value="20"></td><td><input type="number" class="set-pArt" value="4"></td><td><input type="number" class="set-pSong" value="4"></td><td><input type="number" step="0.1" class="set-debuff" value="0.5"></td><td><input type="number" class="set-combo" value="2"></td></tr>
+                <tr id="row-lvl-1"><td>LVL 2</td><td><input type="number" step="0.1" class="set-dur" value="5.0"></td><td><input type="number" class="set-timer" value="25"></td><td><input type="number" class="set-pArt" value="2"></td><td><input type="number" class="set-pSong" value="2"></td><td><input type="number" step="0.1" class="set-debuff" value="0.5"></td><td><input type="number" class="set-combo" value="1"></td></tr>
+                <tr id="row-lvl-2"><td>LVL 3</td><td><input type="number" step="0.1" class="set-dur" value="12.0"></td><td><input type="number" class="set-timer" value="30"></td><td><input type="number" class="set-pArt" value="1"></td><td><input type="number" class="set-pSong" value="1"></td><td><input type="number" step="0.1" class="set-debuff" value="0.5"></td><td><input type="number" class="set-combo" value="0.5"></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="players-section"><div id="players-list"></div></div>
+<div id="player-api-container"><div id="yt-player"></div></div>
+
+<script>
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    let playlist = [], currentIndex = 0, ytPlayer, timerId, playTimeout, currentDuration = 0, isAnswerShown = false;
+
+    // --- ФАЙЛОВАЯ ЛОГИКА (ИСПРАВЛЕНА) ---
+    document.getElementById('excel-file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const wb = XLSX.read(event.target.result, { type: 'binary' });
+            processData(wb);
+        };
+        reader.readAsBinaryString(file);
+    });
+
+    async function loadFromGSheets() { 
+        const url = document.getElementById('gsheets-url').value;
+        if (!url) return alert("Вставьте ссылку CSV!");
+        try { const r = await fetch(url); const t = await r.text(); processData(XLSX.read(t, {type:'string'})); } catch(e){alert("Ошибка загрузки");}
+    }
+
+    function processData(wb) {
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        playlist = XLSX.utils.sheet_to_json(sheet, {header:1}).filter(r => r[0] && r[0].toString().includes('http'));
+        currentIndex = 0;
+        updateTrackDisplay();
+    }
+
+    function updateTrackDisplay() {
+        document.getElementById('track-counter').innerText = `Песня ${playlist.length > 0 ? currentIndex + 1 : 0}/${playlist.length}`;
+        document.getElementById('answer-box').innerText = "******";
+        isAnswerShown = false;
+        if(ytPlayer) ytPlayer.stopVideo();
+    }
+
+    // --- ЛОГИКА ИГРОКОВ (ПО ЛОГИНАМ) ---
+    supabaseClient.channel('quiz_chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_chat' }, payload => {
+        handleIncomingMessage(payload.new);
+    }).subscribe();
+
+    function handleIncomingMessage(data) {
+        const rawName = data.player_name; // "LVL1Имя (login)"
+        const loginMatch = rawName.match(/\((.*?)\)/);
+        const login = loginMatch ? loginMatch[1] : "unknown";
+        const nickname = rawName.replace(/LVL\d/, "").split(' (')[0].trim();
+
+        syncPlayerRow(login, nickname);
+        displayChatBar(data, login);
+        triggerBeep(880, 0.1);
+    }
+
+    function syncPlayerRow(login, nickname) {
+        const list = document.getElementById('players-list');
+        let row = document.getElementById(`row-user-${login}`);
+        if (!row) {
+            const html = `
+                <div class="player-row" id="row-user-${login}">
+                    <input type="text" class="player-name" value="${nickname}" readonly>
+                    <input type="number" class="score-input" value="0" id="score-${login}">
+                    <span style="font-size:10px; color:#555; margin-left:5px;">@${login}</span>
+                </div>`;
+            list.insertAdjacentHTML('beforeend', html);
+        } else {
+            row.querySelector('.player-name').value = nickname;
+        }
+    }
+
+    function displayChatBar(data, login) {
+        const sidebar = document.getElementById('chat-sidebar');
+        const safeId = btoa(login).replace(/=/g, "");
+        if (document.getElementById(`bar-${safeId}`)) return;
+
+        let lvl = 0;
+        if (data.player_name.includes("LVL2")) lvl = 1;
+        else if (data.player_name.includes("LVL3")) lvl = 2;
+
+        const parts = data.message.split(' | ');
+        const art = parts[0] || "---"; const sng = parts[1] || "---";
+
+        const bar = document.createElement('div');
+        bar.className = 'chat-bar';
+        bar.id = `bar-${safeId}`;
+        bar.dataset.login = login;
+        bar.dataset.aEval = "-1"; bar.dataset.sEval = "-1";
+
+        bar.innerHTML = `
+            <div style="font-size:11px; opacity:0.8;">👤 ${data.player_name}</div>
+            <div class="eval-section">
+                <div class="eval-row">
+                    <div style="font-size:10px; color:var(--accent)">АРТИСТ: <b>${art}</b></div>
+                    <div class="eval-btns" id="btns-art-${safeId}">
+                        <button class="btn-v" onclick="evalAns('${safeId}', 'art', 1, ${lvl})">✅</button>
+                        <button class="btn-c" onclick="evalAns('${safeId}', 'art', 0.5, ${lvl})">⚠️</button>
+                        <button class="btn-n" onclick="evalAns('${safeId}', 'art', 0, ${lvl})">❌</button>
+                    </div>
+                </div>
+                <div class="eval-row">
+                    <div style="font-size:10px; color:var(--accent)">ПЕСНЯ: <b>${sng}</b></div>
+                    <div class="eval-btns" id="btns-song-${safeId}">
+                        <button class="btn-v" onclick="evalAns('${safeId}', 'song', 1, ${lvl})">✅</button>
+                        <button class="btn-c" onclick="evalAns('${safeId}', 'song', 0.5, ${lvl})">⚠️</button>
+                        <button class="btn-n" onclick="evalAns('${safeId}', 'song', 0, ${lvl})">❌</button>
+                    </div>
+                </div>
+            </div>`;
+        bar.onclick = (e) => { if(e.target.tagName !== 'BUTTON') { bar.classList.toggle('open'); bar.querySelector('.eval-section').style.display = bar.classList.contains('open') ? 'block' : 'none'; }};
+        sidebar.appendChild(bar);
+    }
+
+    function evalAns(safeId, type, mult, lvl) {
+        const bar = document.getElementById(`bar-${safeId}`);
+        const btns = document.getElementById(`btns-${type}-${safeId}`);
+        btns.querySelectorAll('button').forEach(b => b.disabled = true);
+        
+        const config = document.getElementById(`row-lvl-${lvl}`);
+        const base = parseFloat(config.querySelector(type === 'art' ? '.set-pArt' : '.set-pSong').value);
+        const debuff = parseFloat(config.querySelector('.set-debuff').value);
+        
+        let pts = (mult === 1) ? base : (mult === 0.5 ? base * debuff : 0);
+        if (type === 'art') bar.dataset.aEval = mult; else bar.dataset.sEval = mult;
+        
+        const scoreInp = document.getElementById(`score-${bar.dataset.login}`);
+        if(scoreInp) scoreInp.value = (parseFloat(scoreInp.value) + pts).toFixed(1);
+
+        if (bar.dataset.aEval !== "-1" && bar.dataset.sEval !== "-1") {
+            if (parseFloat(bar.dataset.aEval) > 0 && parseFloat(bar.dataset.sEval) > 0) {
+                const combo = parseFloat(config.querySelector('.set-combo').value);
+                scoreInp.value = (parseFloat(scoreInp.value) + combo).toFixed(1);
+                bar.style.border = "2px solid var(--gold)";
+            }
+        }
+        triggerBeep(1000, 0.05);
+    }
+
+    // --- НАВИГАЦИЯ ---
+    async function changeTrack(dir) {
+        if (playlist.length === 0) return;
+        let newIdx = currentIndex + dir;
+        if (newIdx < 0 || newIdx >= playlist.length) return;
+        
+        currentIndex = newIdx;
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec: 0 } });
+        await supabaseClient.from('quiz_chat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        document.getElementById('chat-sidebar').innerHTML = '';
+        updateTrackDisplay();
+    }
+
+    function handlePlay(type) {
+        if (!playlist[currentIndex]) return;
+        const row = playlist[currentIndex];
+        const vid = extractVideoId(row[0].toString());
+        let dur, tSec, lp;
+        if (type === 3) { dur = 60; tSec = 60; lp = ""; }
+        else {
+            dur = parseFloat(document.querySelector(`#row-lvl-${type} .set-dur`).value);
+            tSec = parseInt(document.querySelector(`#row-lvl-${type} .set-timer`).value);
+            lp = `LVL${type + 1} `;
+        }
+        currentDuration = dur;
+        ytPlayer.loadVideoById({ videoId: vid, startSeconds: (type === 3 ? row[2] : row[2+type]) || 0 });
+        runTimer(tSec, lp);
+    }
+
+    function runTimer(sec, lvl) {
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec, lvl } });
+        clearInterval(timerId);
+        let left = sec;
+        document.getElementById('timer-display').innerText = left;
+        timerId = setInterval(() => {
+            left--; document.getElementById('timer-display').innerText = left < 10 ? '0'+left : left;
+            if (left <= 0) { clearInterval(timerId); triggerBeep(600, 0.8); }
+        }, 1000);
+    }
+
+    function toggleAnswer() {
+        if (!playlist[currentIndex]) return;
+        isAnswerShown = !isAnswerShown;
+        document.getElementById('answer-box').innerText = isAnswerShown ? (playlist[currentIndex][1] || "---") : "******";
+    }
+
+    function toggleSettings() { const p = document.getElementById('settings-panel'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; }
+    function extractVideoId(url) { const m = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/); return m ? m[1] : null; }
+    function triggerBeep(f, d) { try { const a=new AudioContext(); const o=a.createOscillator(); const g=a.createGain(); o.frequency.value=f; g.gain.exponentialRampToValueAtTime(0.01, a.currentTime+d); o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+d); } catch(e){} }
+    function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('yt-player', { height: '1', width: '1', playerVars: { 'autoplay': 0, 'controls': 0 },
+            events: { 'onStateChange': (e) => { if (e.data == YT.PlayerState.PLAYING) { 
+                clearTimeout(playTimeout); playTimeout = setTimeout(() => ytPlayer.pauseVideo(), currentDuration * 1000); 
+            }} }
+        });
+    }
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
