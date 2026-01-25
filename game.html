@@ -224,7 +224,7 @@
 
     function displayChatBar(data, login) {
         const rawName = data.player_name;
-        let nickname = rawName.replace(/LVL\d/, "").split(' (')[0].trim();
+        let nickname = rawName.replace(/LVL\d/, "").split(' (')[0].trim().substring(0, 20);
         
         const sidebar = document.getElementById('chat-sidebar');
         const safeId = btoa(login).replace(/=/g, "");
@@ -364,6 +364,7 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
+
 
 
 
