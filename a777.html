@@ -275,13 +275,28 @@
     }
 
     async function changeTrack(dir) {
-        let n = currentIndex + dir; if (n < 0 || n >= playlist.length) return;
-        stopLogic(); currentIndex = n;
-        respondedPlayers.clear(); skippedPlayers.clear();
+        let n = currentIndex + dir; 
+        if (n < 0 || n >= playlist.length) return;
+        
+        stopLogic(); 
+        currentIndex = n;
+        
+        // СБРОС СОСТОЯНИЙ
+        activeLevel = -1;            // Сбрасываем текущий уровень в логике
+        highlightLevelBtn(-1);       // Убираем подсветку с кнопок (ТА САМАЯ СТРОКА)
+        currentPhase = 'IDLE';       // Переводим в режим ожидания
+        
+        respondedPlayers.clear(); 
+        skippedPlayers.clear();
+        
         document.getElementById('chat-sidebar').innerHTML = '';
         document.querySelectorAll('.player-row').forEach(r => r.classList.remove('is-answered', 'is-skipped'));
+        
+        // Очистка чата в базе данных для нового трека
         await supabaseClient.from('quiz_chat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        
         updateTrackDisplay();
+        updateStatus("ОЖИДАНИЕ");
     }
 
     function updateTrackDisplay() {
