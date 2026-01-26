@@ -324,7 +324,7 @@
         if (isPaused) return;
         const now = Date.now();
         for (const login in playerLastSeen) {
-            if (now - playerLastSeen[login] > 180000) { document.getElementById(`row-user-${login}`)?.remove(); delete playerLastSeen[login]; }
+            if (now - playerLastSeen[login] > 15000) { document.getElementById(`row-user-${login}`)?.remove(); delete playerLastSeen[login]; }
         }
     }, 10000);
 
