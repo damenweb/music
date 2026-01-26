@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ответница - Quiz</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { background: #121212; color: white; font-family: 'Roboto', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .box { background: #1e1e1e; padding: 25px; border-radius: 15px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; border: 1px solid #333; }
+        .info-bar { display: flex; justify-content: space-between; margin-bottom: 20px; background: #252525; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; border: 1px solid #333; }
+        .info-item { color: #888; }
+        .info-val { color: #fff; margin-left: 5px; }
+        input { width: 100%; padding: 15px; margin: 10px 0; background: #2b2b2b; border: 1px solid #444; color: white; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none; transition: 0.2s; }
+        input:focus { border-color: #0078d4; background: #333; }
+        button { width: 100%; padding: 15px; background: #0078d4; border: none; color: white; font-weight: bold; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 5px; transition: 0.2s; }
+        button:active { transform: scale(0.98); }
+        button:disabled { background: #333; color: #777; cursor: not-allowed; transform: none; }
+        .btn-skip { background: transparent; border: 1px solid #555; color: #aaa; margin-top: 10px; padding: 10px; font-size: 14px; }
+        .btn-skip:not(:disabled):hover { border-color: #888; color: #fff; background: rgba(255,255,255,0.05); }
+        .btn-edit { background: transparent; color: #888; font-size: 12px; text-decoration: underline; margin-top: 10px; width: auto; padding: 5px; border: none; cursor: pointer; }
+        .hidden { display: none !important; }
+        #status { margin-top: 15px; font-size: 0.9em; color: #aaa; min-height: 2.4em; line-height: 1.2; }
+        #player-timer { font-size: 64px; font-weight: bold; color: #0078d4; margin: 10px 0; font-family: monospace; }
+        .lvl-large { font-size: 18px; color: #D4AF37; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 1px; }
+        .points-badge { font-size: 11px; color: #0078d4; display: block; margin-bottom: 10px; }
+        #pause-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 99; display: none; align-items: center; justify-content: center; border-radius: 15px; flex-direction: column; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen" class="box">
+        <h2>Вход в Quiz</h2>
+        <input type="text" id="username" placeholder="Логин">
+        <input type="password" id="password" placeholder="Пароль">
+        <button onclick="tryLogin()">Войти</button>
+        <div id="auth-status" style="color:red; margin-top:10px;"></div>
+    </div>
+
+    <div id="name-screen" class="box hidden">
+        <h2>Твоё имя</h2>
+        <input type="text" id="pName" placeholder="Введи имя">
+        <button onclick="saveName()">Сохранить</button>
+    </div>
+
+    <div id="game-screen" class="box hidden">
+        <div id="pause-overlay">
+            <h1 style="color: #ffeb3b">ПАУЗА</h1>
+            <p>Ведущий приостановил игру</p>
+        </div>
+
+        <div class="info-bar">
+            <div class="info-item">ROUND: <span id="track-val" class="info-val">--</span></div>
+            <div class="info-item">USER: <span id="display-name" class="info-val" style="color: #0078d4;"></span></div>
+        </div>
+
+        <div id="lvl-badge" class="lvl-large">ОЖИДАНИЕ</div>
+        <span id="points-info" class="points-badge"></span>
+        <div id="player-timer">00</div>
+        
+        <input type="text" id="pArtist" placeholder="Исполнитель...">
+        <input type="text" id="pSong" placeholder="Название песни...">
+        
+        <button id="sendBtn" onclick="send()" disabled>ОТПРАВИТЬ</button>
+        <button id="skipBtn" class="btn-skip" onclick="skip()" disabled>Не знаю (Скип)</button>
+        
+        <div id="status">Ждем начала раунда...</div>
+        
+        <div style="margin-top:15px; display:flex; justify-content:space-between; padding:0 10px;">
+             <button class="btn-edit" onclick="editName()">Сменить имя</button>
+             <button class="btn-edit" style="color:#c62828" onclick="logout()">Выйти</button>
+        </div>
+    </div>
+
+    <script>
+        const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+        const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+        const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+        let myLogin = "", mySavedName = localStorage.getItem('quiz_player_nickname');
+        let localTimerId, currentLvlTag = "", currentSongNum = -1;
+        let hasAnsweredThisSong = false;
+        let isPaused = false;
+
+        window.onload = checkAuth;
+
+        async function checkAuth() {
+            const u = localStorage.getItem('quiz_user'), p = localStorage.getItem('quiz_pass');
+            if (u && p) {
+                const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', u).eq('password', p).single();
+                if (data) { myLogin = data.username; showGameScreen(); } else { logout(); }
+            }
+        }
+
+        async function tryLogin() {
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+            const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', user).eq('password', pass).single();
+            if (data) {
+                localStorage.setItem('quiz_user', user); localStorage.setItem('quiz_pass', pass);
+                myLogin = data.username; showGameScreen();
+            } else { document.getElementById('auth-status').innerText = "Ошибка входа"; }
+        }
+
+        function showGameScreen() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            if (!mySavedName) document.getElementById('name-screen').classList.remove('hidden');
+            else { 
+                document.getElementById('game-screen').classList.remove('hidden');
+                document.getElementById('display-name').innerText = mySavedName;
+                startTracking();
+            }
+        }
+
+        function saveName() {
+            const name = document.getElementById('pName').value.trim();
+            if (name) { mySavedName = name; localStorage.setItem('quiz_player_nickname', name); showGameScreen(); }
+        }
+
+        function editName() { 
+            document.getElementById('game-screen').classList.add('hidden'); 
+            document.getElementById('name-screen').classList.remove('hidden'); 
+        }
+
+        function logout() { localStorage.clear(); location.reload(); }
+
+        const channel = supabaseClient.channel('quiz_chat');
+        function startTracking() { channel.track({ user: myLogin, nickname: mySavedName }); }
+
+        async function send() {
+            if (hasAnsweredThisSong) return;
+            const art = document.getElementById('pArtist').value.trim();
+            const sng = document.getElementById('pSong').value.trim();
+            if(!art && !sng) return;
+            hasAnsweredThisSong = true;
+            submitAction(`${art} | ${sng}`);
+            document.getElementById('status').innerText = "Ответ принят! Откинься на спинку кресла и жди следующую песню 😎";
+        }
+
+        async function skip() {
+            // Скип на текущем этапе не блокирует ответ на следующем
+            toggleInputs(false);
+            document.getElementById('status').innerText = "Вы пропустили этап. Ждите следующую подсказку...";
+            submitAction("SKIP");
+        }
+
+        async function submitAction(msgContent) {
+            const fullName = `${currentLvlTag} ${mySavedName} (${myLogin})`;
+            await supabaseClient.from('quiz_chat').insert([{ player_name: fullName, message: msgContent }]);
+            toggleInputs(false);
+        }
+
+        function toggleInputs(enable) {
+            if (hasAnsweredThisSong) enable = false;
+            document.getElementById('sendBtn').disabled = !enable;
+            document.getElementById('skipBtn').disabled = !enable;
+            document.getElementById('pArtist').disabled = !enable;
+            document.getElementById('pSong').disabled = !enable;
+            document.getElementById('pArtist').style.opacity = enable ? "1" : "0.5";
+            document.getElementById('pSong').style.opacity = enable ? "1" : "0.5";
+        }
+
+        channel.on('broadcast', { event: 'sync_state' }, (p) => {
+            const data = p.payload;
+            document.getElementById('track-val').innerText = `${data.songNum}/${data.total || '--'}`;
+            document.getElementById('lvl-badge').innerText = data.level;
+            
+            if (data.settings) {
+                document.getElementById('points-info').innerText = `Сейчас на кону: Арт +${data.settings.art} / Песня +${data.settings.sng}`;
+            }
+
+            if (currentSongNum !== data.songNum) {
+                currentSongNum = data.songNum; hasAnsweredThisSong = false;
+                document.getElementById('status').innerText = "Новая песня...";
+                document.getElementById('pArtist').value = ""; document.getElementById('pSong').value = "";
+            }
+            currentLvlTag = data.level;
+            toggleInputs(false);
+        });
+
+        channel.on('broadcast', { event: 'game_paused' }, (p) => {
+            isPaused = p.payload.paused;
+            document.getElementById('pause-overlay').style.display = isPaused ? 'flex' : 'none';
+        });
+
+        channel.on('broadcast', { event: 'start_timer' }, (p) => {
+            const sec = p.payload.sec;
+            currentLvlTag = p.payload.lvl || "";
+            document.getElementById('lvl-badge').innerText = currentLvlTag;
+
+            if (sec > 0) {
+                if (!hasAnsweredThisSong) {
+                    toggleInputs(true);
+                    document.getElementById('status').innerText = "ВРЕМЯ ПОШЛО! 🔥";
+                }
+                let left = sec;
+                const el = document.getElementById('player-timer');
+                clearInterval(localTimerId);
+                localTimerId = setInterval(() => {
+                    if (isPaused) return;
+                    left--;
+                    el.innerText = left < 10 ? '0' + left : left;
+                    if (left <= 0) { clearInterval(localTimerId); toggleInputs(false); }
+                }, 1000);
+            } else {
+                clearInterval(localTimerId);
+                document.getElementById('player-timer').innerText = "00";
+                toggleInputs(false);
+            }
+        }).subscribe();
+        
+        channel.on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'quiz_chat' }, () => {
+            if (!hasAnsweredThisSong) {
+                document.getElementById('pArtist').value = ""; document.getElementById('pSong').value = "";
+            }
+        });
+    </script>
+</body>
+</html>
