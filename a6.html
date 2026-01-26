@@ -73,14 +73,14 @@
         <button class="btn-action" onclick="toggleSettings()">Настройки</button>
     </div>
 
-    <div id="track-counter">Песня 0/0</div>
+    <div id="track-counter">РАУНД 0/0</div>
     <div id="status-display">ОЖИДАНИЕ</div>
     <div id="timer-display">00</div>
     
     <div class="play-row">
-        <button id="btn-lvl-0" class="btn-main" style="background:var(--gold)" onclick="manualStart(0)">▶ П.1</button>
-        <button id="btn-lvl-1" class="btn-main" style="background:var(--silver)" onclick="manualStart(1)">▶ П.2</button>
-        <button id="btn-lvl-2" class="btn-main" style="background:var(--bronze)" onclick="manualStart(2)">▶ П.3</button>
+        <button id="btn-lvl-0" class="btn-main" style="background:var(--gold)" onclick="manualStart(0)">▶ 1</button>
+        <button id="btn-lvl-1" class="btn-main" style="background:var(--silver)" onclick="manualStart(1)">▶ 2</button>
+        <button id="btn-lvl-2" class="btn-main" style="background:var(--bronze)" onclick="manualStart(2)">▶ 3</button>
     </div>
 
     <div id="answer-box">******</div>
@@ -276,7 +276,7 @@
     }
 
     function updateTrackDisplay() {
-        document.getElementById('track-counter').innerText = `Песня ${playlist.length?currentIndex+1:0}/${playlist.length}`;
+        document.getElementById('track-counter').innerText = `РАУНД ${playlist.length?currentIndex+1:0}/${playlist.length}`;
         document.getElementById('answer-box').innerText = "******";
         isAnswerShown = false;
     }
