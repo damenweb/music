@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админка - Quiz PRO</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; --accent: #0078d4; --border: #333333; --answered: #1b78e3; }
+        body { font-family: 'Roboto', sans-serif; background-color: var(--dark-bg); color: var(--text-color); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 10000; display: flex; align-items: center; justify-content: center; }
+        .login-box { background: #1e1e1e; padding: 40px; border-radius: 12px; border: 1px solid var(--accent); text-align: center; }
+        .login-box input { display: block; width: 250px; padding: 12px; margin: 20px 0; background: #000; border: 1px solid #444; color: white; text-align: center; }
+        .game-section { width: 70%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--border); position: relative; }
+        .players-section { width: 30%; padding: 20px; background-color: var(--panel-bg); overflow-y: auto; }
+        #timer-display { font-size: 140px; font-weight: 200; color: var(--accent); font-family: monospace; }
+        .btn-main { width: 100px; height: 100px; border-radius: 50%; border: none; cursor: pointer; font-weight: bold; color: white; margin: 0 10px; }
+        .active-lvl { outline: 5px solid white; box-shadow: 0 0 20px var(--accent); }
+        .player-row { display: flex; align-items: center; justify-content: space-between; background: #252525; padding: 12px; margin-bottom: 6px; border-radius: 4px; }
+        .is-answered { background-color: var(--answered) !important; }
+        .is-skipped { opacity: 0.5; border-left: 4px solid #555; }
+        .score-input { width: 60px; background: #000; border: 1px solid var(--accent); color: #fff; text-align: center; padding: 5px; }
+        #chat-sidebar { position: fixed; left: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 999; }
+        .chat-bar { background: rgba(30, 30, 30, 0.95); border: 1px solid var(--accent); color: white; padding: 10px; border-radius: 5px; width: 200px; cursor: pointer; font-size: 13px; }
+        .chat-bar.open { width: 500px; }
+        .eval-btns-minimal button { padding: 5px 8px; cursor: pointer; border: none; color: white; font-size: 11px; margin-left: 2px; }
+        #settings-panel { width: 90%; background: #1a1a1a; padding: 15px; display: none; margin-top: 20px; font-size: 12px; border: 1px solid #444; }
+        .settings-table input { width: 40px; background: #000; color: #fff; border: 1px solid #555; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div class="login-box">
+        <h2>Admin Login</h2>
+        <input type="password" id="admin-password" placeholder="Пароль">
+        <button onclick="login()" style="width:100%; padding:10px; background:var(--accent); border:none; color:white;">ВХОД</button>
+    </div>
+</div>
+
+<div id="chat-sidebar"></div>
+
+<div class="game-section">
+    <div style="position:absolute; top:20px; left:20px;">
+        <input type="file" id="excel-file" hidden>
+        <button onclick="document.getElementById('excel-file').click()">XLSX</button>
+        <button onclick="toggleSettings()">Настройки</button>
+    </div>
+
+    <div id="track-counter" style="font-size: 24px;">Песня 0/0</div>
+    <div id="status-display" style="color: #888; margin: 10px;">ОЖИДАНИЕ</div>
+    <div id="timer-display">00</div>
+    
+    <div style="margin: 20px 0;">
+        <button id="btn-lvl-0" class="btn-main" style="background:var(--gold)" onclick="manualStart(0)">П.1</button>
+        <button id="btn-lvl-1" class="btn-main" style="background:var(--silver)" onclick="manualStart(1)">П.2</button>
+        <button id="btn-lvl-2" class="btn-main" style="background:var(--bronze)" onclick="manualStart(2)">П.3</button>
+        <button id="btn-lvl-3" class="btn-main" style="background:var(--accent)" onclick="manualStart(3)">FULL</button>
+    </div>
+
+    <div id="answer-box" style="font-size: 30px; color: var(--gold); background: #000; padding: 15px; border-radius: 10px; min-width: 300px; text-align: center;">******</div>
+
+    <div style="margin-top: 20px;">
+        <button onclick="changeTrack(-1)">⏮</button>
+        <button onclick="toggleAnswer()" style="padding: 10px 30px;">ОТВЕТ</button>
+        <button onclick="changeTrack(1)">⏭</button>
+    </div>
+
+    <div id="settings-panel">
+        <table style="width:100%">
+            <tr id="row-lvl-0"><td>Ур1</td><td>Длит:<input type="number" step="0.1" class="set-dur" value="1.5"></td><td>Тайм:<input type="number" class="set-timer" value="20"></td><td>Арт:<input type="number" class="set-pArt" value="4"></td><td>Песн:<input type="number" class="set-pSong" value="4"></td><td>Коэф:<input type="number" step="0.1" class="set-debuff" value="0.5"></td><td>Комбо:<input type="number" class="set-combo" value="2"></td></tr>
+            <tr id="row-lvl-1"><td>Ур2</td><td>Длит:<input type="number" step="0.1" class="set-dur" value="5.0"></td><td>Тайм:<input type="number" class="set-timer" value="25"></td><td>Арт:<input type="number" class="set-pArt" value="2"></td><td>Песн:<input type="number" class="set-pSong" value="2"></td><td>Коэф:<input type="number" step="0.1" class="set-debuff" value="0.5"></td><td>Комбо:<input type="number" class="set-combo" value="1"></td></tr>
+            <tr id="row-lvl-2"><td>Ур3</td><td>Длит:<input type="number" step="0.1" class="set-dur" value="12.0"></td><td>Тайм:<input type="number" class="set-timer" value="30"></td><td>Арт:<input type="number" class="set-pArt" value="1"></td><td>Песн:<input type="number" class="set-pSong" value="1"></td><td>Коэф:<input type="number" step="0.1" class="set-debuff" value="0.5"></td><td>Комбо:<input type="number" class="set-combo" value="0.5"></td></tr>
+        </table>
+    </div>
+</div>
+
+<div class="players-section"><div id="players-list"></div></div>
+<div id="yt-player-wrap" style="display:none;"><div id="yt-player"></div></div>
+
+<script>
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    let playlist = [], currentIndex = 0, ytPlayer;
+    let timerId, playTimeout, activeLevel = -1, currentPhase = 'IDLE';
+    let respondedPlayers = new Set(), skippedPlayers = new Set(), playersScores = {};
+
+    async function login() {
+        const pass = document.getElementById('admin-password').value;
+        const { data } = await supabaseClient.from('quiz_users').select('password').eq('username', 'admin').single();
+        if (data && data.password === pass) {
+            document.getElementById('login-screen').style.display = 'none';
+            sessionStorage.setItem('quiz_authorized', 'true');
+        }
+    }
+    if (sessionStorage.getItem('quiz_authorized') === 'true') document.getElementById('login-screen').style.display = 'none';
+
+    function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('yt-player', {
+            events: { 'onStateChange': onPlayerStateChange }
+        });
+    }
+
+    function onPlayerStateChange(event) {
+        if (event.data == YT.PlayerState.PLAYING && currentPhase === 'PRELOAD') {
+            currentPhase = 'PLAYING';
+            updateStatus("ИГРАЕТ");
+            
+            if (activeLevel < 3) {
+                const tSec = parseInt(document.querySelector(`#row-lvl-${activeLevel} .set-timer`).value);
+                const dur = parseFloat(document.querySelector(`#row-lvl-${activeLevel} .set-dur`).value);
+                broadcastTimer(tSec + Math.ceil(dur), `Подсказка ${activeLevel+1}`);
+                startInternalCountdown(tSec + Math.ceil(dur));
+            }
+
+            const duration = activeLevel === 3 ? 300 : parseFloat(document.querySelector(`#row-lvl-${activeLevel} .set-dur`).value);
+            clearTimeout(playTimeout);
+            playTimeout = setTimeout(() => {
+                ytPlayer.pauseVideo();
+                if (activeLevel >= 3) { currentPhase = 'IDLE'; highlightLevelBtn(-1); }
+            }, duration * 1000);
+        }
+    }
+
+    async function startLevelSequence(lvl) {
+        if (!playlist[currentIndex]) return;
+        activeLevel = lvl; currentPhase = 'PRELOAD';
+        updateStatus("ЗАГРУЗКА...");
+        highlightLevelBtn(lvl);
+
+        const row = playlist[currentIndex];
+        const vid = extractVideoId(row[0].toString());
+        const startSec = (lvl === 3 ? row[2] : row[2+lvl]) || 0;
+
+        let pointsObj = null;
+        if(lvl < 3) {
+            const cfg = document.getElementById(`row-lvl-${lvl}`);
+            pointsObj = { art: cfg.querySelector('.set-pArt').value, sng: cfg.querySelector('.set-pSong').value, def: cfg.querySelector('.set-debuff').value, cmb: cfg.querySelector('.set-combo').value };
+        }
+
+        await supabaseClient.channel('quiz_chat').send({ 
+            type: 'broadcast', event: 'sync_state', 
+            payload: { songNum: currentIndex + 1, totalSongs: playlist.length, level: lvl === 3 ? "FULL" : `Подсказка ${lvl+1}`, points: pointsObj } 
+        });
+
+        ytPlayer.loadVideoById({ videoId: vid, startSeconds: startSec });
+    }
+
+    function manualStart(lvl) { startLevelSequence(lvl); }
+
+    function startInternalCountdown(left) {
+        clearInterval(timerId);
+        timerId = setInterval(() => {
+            left--;
+            document.getElementById('timer-display').innerText = left < 10 ? '0'+left : left;
+            if (left <= 0) { clearInterval(timerId); handleTimerEnd(); }
+        }, 1000);
+    }
+
+    function handleTimerEnd() {
+        broadcastTimer(0, "");
+        if (activeLevel < 2 && activeLevel !== -1) startLevelSequence(activeLevel + 1);
+        else revealAnswer();
+    }
+
+    function revealAnswer() {
+        document.getElementById('answer-box').innerText = playlist[currentIndex][1] || "---";
+        document.querySelectorAll('.chat-bar').forEach(b => b.querySelector('.eval-row-inline').style.display = 'flex');
+    }
+
+    function toggleAnswer() {
+        const box = document.getElementById('answer-box');
+        box.innerText = box.innerText === "******" ? (playlist[currentIndex][1] || "---") : "******";
+    }
+
+    async function changeTrack(dir) {
+        currentIndex += dir;
+        respondedPlayers.clear(); skippedPlayers.clear();
+        document.getElementById('chat-sidebar').innerHTML = '';
+        document.querySelectorAll('.player-row').forEach(r => r.classList.remove('is-answered', 'is-skipped'));
+        await supabaseClient.from('quiz_chat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        updateTrackDisplay();
+    }
+
+    function updateTrackDisplay() {
+        document.getElementById('track-counter').innerText = `Песня ${currentIndex+1}/${playlist.length}`;
+        document.getElementById('answer-box').innerText = "******";
+    }
+
+    function extractVideoId(u) { return u.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/)?.[1]; }
+    function updateStatus(t) { document.getElementById('status-display').innerText = t; }
+    function highlightLevelBtn(lvl) {
+        document.querySelectorAll('.btn-main').forEach(b => b.classList.remove('active-lvl'));
+        if (lvl >= 0) document.getElementById(`btn-lvl-${lvl}`).classList.add('active-lvl');
+    }
+    function broadcastTimer(sec, ln) {
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec, lvl: ln } });
+    }
+
+    // Supabase Chat & Presence
+    const channel = supabaseClient.channel('quiz_chat');
+    channel.on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        for (const id in state) { state[id].forEach(p => syncPlayerRow(p.user)); }
+    }).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_chat' }, payload => {
+        const d = payload.new;
+        const login = (d.player_name.match(/\((.*?)\)/) || [])[1];
+        const lvlTag = (d.player_name.match(/(Подсказка \d)/) || [])[1];
+        if (d.message === "SKIP") { 
+            skippedPlayers.add(login); 
+            document.getElementById(`row-user-${login}`)?.classList.add('is-skipped'); 
+        } else { 
+            respondedPlayers.add(login); 
+            document.getElementById(`row-user-${login}`)?.classList.add('is-answered'); 
+            displayChatBar(d, login, lvlTag); 
+        }
+    }).subscribe();
+
+    function syncPlayerRow(login) {
+        if (!document.getElementById(`row-user-${login}`)) {
+            document.getElementById('players-list').insertAdjacentHTML('beforeend', `<div class="player-row" id="row-user-${login}">
+                <b>${login}</b>
+                <input type="number" class="score-input" value="0" id="score-${login}" onchange="sortPlayers()">
+            </div>`);
+        }
+    }
+
+    function sortPlayers() {
+        const list = document.getElementById('players-list');
+        [...list.querySelectorAll('.player-row')].sort((a,b)=>b.querySelector('.score-input').value - a.querySelector('.score-input').value).forEach(r=>list.appendChild(r));
+    }
+
+    function displayChatBar(data, login, lvl) {
+        const side = document.getElementById('chat-sidebar');
+        const sid = btoa(login + data.id).slice(0,8);
+        const parts = data.message.split(' | ');
+        let lIdx = lvl?.includes('1')?0:(lvl?.includes('2')?1:2);
+        const bar = document.createElement('div');
+        bar.className = 'chat-bar'; bar.id = `bar-${sid}`;
+        bar.innerHTML = `<small>${lvl}</small> <b>${login}</b>
+            <div class="eval-row-inline" style="display:none; flex-direction:column; margin-top:5px;">
+                <div style="font-size:10px;">${parts[0]} / ${parts[1]}</div>
+                <div class="eval-btns-minimal">
+                    <button style="background:green" onclick="calc('${login}','${sid}',${lIdx},1,1)">1+1</button>
+                    <button style="background:darkgreen" onclick="calc('${login}','${sid}',${lIdx},1,0.5)">1+½</button>
+                    <button style="background:orange" onclick="calc('${login}','${sid}',${lIdx},1,0)">1+0</button>
+                    <button style="background:red" onclick="calc('${login}','${sid}',${lIdx},0,0)">0</button>
+                </div>
+            </div>`;
+        bar.onclick = () => bar.classList.toggle('open');
+        side.appendChild(bar);
+    }
+
+    function calc(login, sid, lvl, mArt, mSng) {
+        const cfg = document.getElementById(`row-lvl-${lvl}`);
+        const pA = parseFloat(cfg.querySelector('.set-pArt').value), pS = parseFloat(cfg.querySelector('.set-pSong').value);
+        const def = parseFloat(cfg.querySelector('.set-debuff').value), cmb = parseFloat(cfg.querySelector('.set-combo').value);
+        let res = (mArt===1?pA:(mArt===0.5?pA*def:0)) + (mSng===1?pS:(mSng===0.5?pS*def:0));
+        if (mArt>0 && mSng>0) res += cmb;
+        const inp = document.getElementById(`score-${login}`);
+        if(inp) inp.value = (parseFloat(inp.value) + res).toFixed(1);
+        document.getElementById(`bar-${sid}`).remove();
+        sortPlayers();
+    }
+
+    document.getElementById('excel-file').addEventListener('change', e => {
+        const reader = new FileReader();
+        reader.onload = ev => { 
+            const wb = XLSX.read(ev.target.result, { type: 'binary' });
+            playlist = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1}).filter(r => r[0] && r[0].toString().includes('http'));
+            updateTrackDisplay();
+        };
+        reader.readAsBinaryString(e.target.files[0]);
+    });
+
+    function toggleSettings() { const s = document.getElementById('settings-panel'); s.style.display = s.style.display==='block'?'none':'block'; }
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
