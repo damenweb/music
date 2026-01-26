@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админка - Quiz (PRO)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; --accent: #0078d4; --border: #333333; --danger: #c62828; --answered: #1b78e3; --skipped: #555555; }
+        body { font-family: 'Roboto', sans-serif; background-color: var(--dark-bg); color: var(--text-color); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .login-box { background: #1e1e1e; padding: 40px; border-radius: 12px; border: 1px solid var(--accent); text-align: center; }
+        .login-box input { display: block; width: 250px; padding: 12px; margin: 20px 0; background: #000; border: 1px solid #444; color: white; text-align: center; border-radius: 4px; }
+        .btn-login { background: var(--accent); color: white; border: none; padding: 12px 24px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; }
+        .game-section { width: 70%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--border); position: relative; }
+        .players-section { width: 30%; padding: 20px; background-color: var(--panel-bg); display: flex; flex-direction: column; overflow-y: auto; }
+        .upload-area { position: absolute; top: 20px; left: 20px; display: flex; gap: 10px; }
+        .top-right-actions { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; align-items: center; }
+        .btn-action { background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; cursor: pointer; font-size: 12px; text-transform: uppercase; }
+        .btn-pause { background: #c62828; color: white; border: none; padding: 8px 16px; cursor: pointer; font-weight: bold; border-radius: 4px; font-size: 12px; }
+        .btn-pause.paused { background: #ffeb3b; color: black; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+        #track-counter { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+        #status-display { font-size: 16px; color: #888; margin-bottom: 5px; height: 20px; text-transform: uppercase; letter-spacing: 2px; }
+        #timer-display { font-size: 140px; font-weight: 200; margin-bottom: 10px; font-family: monospace; color: var(--accent); line-height: 1; }
+        .play-row { display: flex; gap: 15px; margin-bottom: 30px; }
+        .btn-main { width: 100px; height: 100px; border-radius: 50%; border: none; cursor: pointer; font-weight: bold; font-size: 16px; color: white; transition: transform 0.1s; }
+        .btn-main.active-lvl { outline: 5px solid white; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); } }
+        #answer-box { font-size: 28px; font-weight: bold; text-align: center; margin-bottom: 15px; min-height: 40px; color: var(--gold); padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.3); width: 80%; }
+        .nav-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .btn-nav { padding: 10px 25px; background: #333; color: #fff; border: none; cursor: pointer; font-weight: bold; border-radius: 2px; }
+        .player-row { display: flex; align-items: center; justify-content: space-between; background: #252525; padding: 12px; margin-bottom: 6px; border-radius: 4px; border-left: 4px solid #555; }
+        .player-row.is-answered { background-color: var(--answered) !important; border-left-color: #fff; }
+        .player-row.is-skipped { background-color: #333; opacity: 0.7; }
+
+        /* УБИРАЕМ СТРЕЛКИ У INPUT NUMBER */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        .score-input { width: 70px; background: #000; border: 1px solid var(--accent); color: #fff; padding: 8px 0; text-align: center; font-weight: bold; border-radius: 2px; margin-right: 10px; }
+        #chat-sidebar { position: fixed; left: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 9999; }
+        .chat-bar { background: rgba(30, 30, 30, 0.98); border: 2px solid var(--accent); color: white; padding: 12px; border-radius: 8px; width: 220px; cursor: pointer; }
+        .chat-bar.open { width: 600px; }
+        .eval-row-inline { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin-top: 10px; border-top: 1px solid #444; padding-top: 10px; }
+        .eval-btns-minimal { display: flex; gap: 4px; }
+        .eval-btns-minimal button { padding: 6px 10px; cursor: pointer; border: none; border-radius: 3px; font-size: 12px; color: white; font-weight: bold; }
+        .btn-e-1 { background: #2e7d32; } .btn-e-2 { background: #689f38; } .btn-e-3 { background: #f9a825; } .btn-e-4 { background: #ef6c00; } .btn-e-5 { background: #c62828; }
+        #settings-panel { width: 95%; margin-top: 20px; padding: 15px; border: 1px solid #444; background: #1a1a1a; display: none; }
+        .settings-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .settings-table input { width: 45px; background: #222; border: 1px solid #555; color: #fff; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div class="login-box">
+        <h2>Quiz Admin Panel</h2>
+        <input type="password" id="admin-password" placeholder="Пароль" onkeydown="if(event.key==='Enter') login()">
+        <button class="btn-login" onclick="login()">ВОЙТИ</button>
+    </div>
+</div>
+
+<div id="chat-sidebar"></div>
+
+<div class="game-section">
+    <div class="upload-area">
+        <input type="file" id="excel-file" hidden accept=".xlsx, .xls">
+        <button class="btn-action" onclick="document.getElementById('excel-file').click()">Файл</button>
+        <button class="btn-action" onclick="loadFromGSheets()">CSV</button>
+        <input type="text" id="gsheets-url" style="background:#121212; border:1px solid #444; color:white; padding:8px; width: 100px;" placeholder="URL">
+    </div>
+
+    <div class="top-right-actions">
+        <button id="btn-pause" class="btn-pause" onclick="togglePause()">ПАУЗА</button>
+        <button class="btn-action" onclick="toggleSettings()">Настройки</button>
+    </div>
+
+    <div id="track-counter">Песня 0/0</div>
+    <div id="status-display">ОЖИДАНИЕ</div>
+    <div id="timer-display">00</div>
+    
+    <div class="play-row">
+        <button id="btn-lvl-0" class="btn-main" style="background:var(--gold)" onclick="manualStart(0)">▶ П.1</button>
+        <button id="btn-lvl-1" class="btn-main" style="background:var(--silver)" onclick="manualStart(1)">▶ П.2</button>
+        <button id="btn-lvl-2" class="btn-main" style="background:var(--bronze)" onclick="manualStart(2)">▶ П.3</button>
+        <button id="btn-lvl-3" class="btn-main" style="background:var(--accent)" onclick="manualStart(3)">FULL</button>
+    </div>
+
+    <div id="answer-box">******</div>
+
+    <div class="nav-row">
+        <button class="btn-nav" onclick="changeTrack(-1)">⏮</button>
+        <button id="toggle-ans-btn" class="btn-nav" style="background: var(--accent)" onclick="toggleAnswer()">ОТВЕТ</button>
+        <button class="btn-nav" onclick="changeTrack(1)">⏭</button>
+    </div>
+    
+    <div id="settings-panel">
+        <table class="settings-table">
+            <thead>
+                <tr><th>Ур.</th> <th>Длит.</th> <th>Таймер</th> <th>Арт.</th> <th>Песня</th> <th>Коэф.</th> <th>Комбо</th></tr>
+            </thead>
+            <tbody>
+                <tr id="row-lvl-0"><td>1</td><td><input type="number" step="0.1" class="set-dur" value="1.5"></td><td><input type="number" class="set-timer" value="20"></td><td><input type="number" class="set-pArt" value="4"></td><td><input type="number" class="set-pSong" value="4"></td><td><input type="number" step="0.1" class="set-debuff" value="0.5"></td><td><input type="number" class="set-combo" value="2"></td></tr>
+                <tr id="row-lvl-1"><td>2</td><td><input type="number" step="0.1" class="set-dur" value="5.0"></td><td><input type="number" class="set-timer" value="25"></td><td><input type="number" class="set-pArt" value="2"></td><td><input type="number" class="set-pSong" value="2"></td><td><input type="number" step="0.1" class="set-debuff" value="0.5"></td><td><input type="number" class="set-combo" value="1"></td></tr>
+                <tr id="row-lvl-2"><td>3</td><td><input type="number" step="0.1" class="set-dur" value="12.0"></td><td><input type="number" class="set-timer" value="30"></td><td><input type="number" class="set-pArt" value="1"></td><td><input type="number" class="set-pSong" value="1"></td><td><input type="number" step="0.1" class="set-debuff" value="0.5"></td><td><input type="number" class="set-combo" value="0.5"></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="players-section"><div id="players-list"></div></div>
+<div id="player-api-container" style="display:none;"><div id="yt-player"></div></div>
+
+<script>
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    let playlist = [], currentIndex = 0, ytPlayer;
+    let timerId, playTimeout;
+    let isAnswerShown = false, isPaused = false;
+    let activeLevel = -1, currentPhase = 'IDLE';
+    let respondedPlayers = new Set(), skippedPlayers = new Set();
+    let playersScores = {}, playerLastSeen = {};
+
+    async function login() {
+        const pass = document.getElementById('admin-password').value;
+        const { data } = await supabaseClient.from('quiz_users').select('password').eq('username', 'admin').single();
+        if (data && data.password === pass) {
+            document.getElementById('login-screen').style.display = 'none';
+            sessionStorage.setItem('quiz_authorized', 'true');
+        }
+    }
+    if (sessionStorage.getItem('quiz_authorized') === 'true') document.getElementById('login-screen').style.display = 'none';
+
+    function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('yt-player', {
+            height: '1', width: '1',
+            playerVars: { 'autoplay': 0, 'controls': 0, 'disablekb': 1 },
+            events: {
+                'onReady': (e) => e.target.setVolume(70),
+                'onStateChange': onPlayerStateChange
+            }
+        });
+    }
+
+    function onPlayerStateChange(event) {
+        if (event.data == YT.PlayerState.PLAYING && currentPhase === 'PRELOAD') {
+            currentPhase = 'PLAYING';
+            updateStatus("МУЗЫКА!");
+            if (activeLevel < 3) {
+                const tSec = parseInt(document.querySelector(`#row-lvl-${activeLevel} .set-timer`).value);
+                const dur = parseFloat(document.querySelector(`#row-lvl-${activeLevel} .set-dur`).value);
+                broadcastTimer(tSec + Math.ceil(dur), `Подсказка ${activeLevel+1}`);
+                startInternalCountdown(tSec + Math.ceil(dur));
+            }
+            const duration = activeLevel === 3 ? 300 : parseFloat(document.querySelector(`#row-lvl-${activeLevel} .set-dur`).value);
+            clearTimeout(playTimeout);
+            playTimeout = setTimeout(() => {
+                ytPlayer.pauseVideo();
+                if (activeLevel >= 3) { currentPhase = 'IDLE'; updateStatus("КОНЕЦ"); highlightLevelBtn(-1); }
+                else { updateStatus("ОЖИДАНИЕ ОТВЕТОВ"); }
+            }, duration * 1000);
+        }
+    }
+
+    function startInternalCountdown(left) {
+        clearInterval(timerId);
+        document.getElementById('timer-display').innerText = left;
+        timerId = setInterval(() => {
+            if(isPaused) return;
+            left--;
+            document.getElementById('timer-display').innerText = left < 10 ? '0'+left : left;
+            if (left <= 0) { clearInterval(timerId); handleTimerEnd(); }
+        }, 1000);
+    }
+
+    function manualStart(lvl) {
+        if(isPaused) togglePause();
+        startLevelSequence(lvl);
+    }
+
+    async function startLevelSequence(lvl) {
+        if (!playlist[currentIndex]) return;
+        stopLogic();
+        activeLevel = lvl;
+        currentPhase = 'PRELOAD';
+        updateStatus("ЗАГРУЗКА...");
+        highlightLevelBtn(lvl);
+        const row = playlist[currentIndex];
+        const vid = extractVideoId(row[0].toString());
+        const startSec = (lvl === 3 ? row[2] : row[2+lvl]) || 0;
+        let pointsObj = null;
+        if(lvl < 3) {
+            const cfg = document.getElementById(`row-lvl-${lvl}`);
+            pointsObj = {
+                art: cfg.querySelector('.set-pArt').value,
+                sng: cfg.querySelector('.set-pSong').value,
+                def: cfg.querySelector('.set-debuff').value,
+                cmb: cfg.querySelector('.set-combo').value
+            };
+        }
+        await supabaseClient.channel('quiz_chat').send({ 
+            type: 'broadcast', event: 'sync_state', 
+            payload: { 
+                songNum: currentIndex + 1, 
+                totalSongs: playlist.length, 
+                level: lvl === 3 ? "FULL" : `Подсказка ${lvl+1}`,
+                points: pointsObj
+            } 
+        });
+        ytPlayer.loadVideoById({ videoId: vid, startSeconds: startSec });
+    }
+
+    function handleTimerEnd() {
+        broadcastTimer(0, "");
+        if (activeLevel < 2 && activeLevel !== -1) startLevelSequence(activeLevel + 1);
+        else { activeLevel = -1; highlightLevelBtn(-1); revealAnswer(); }
+    }
+
+    function revealAnswer() {
+        isAnswerShown = true;
+        document.getElementById('answer-box').innerText = playlist[currentIndex][1] || "---";
+        updateStatus("ОТВЕТ ОТКРЫТ");
+        document.querySelectorAll('.chat-bar').forEach(b => { b.classList.add('open'); b.querySelector('.eval-row-inline').style.display = 'flex'; });
+    }
+
+    function stopLogic() {
+        clearTimeout(playTimeout); clearInterval(timerId);
+        if(ytPlayer) ytPlayer.pauseVideo();
+        document.getElementById('timer-display').innerText = "00";
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('btn-pause');
+        btn.classList.toggle('paused', isPaused);
+        if(ytPlayer) isPaused ? ytPlayer.pauseVideo() : (currentPhase==='PLAYING' && ytPlayer.playVideo());
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'game_paused', payload: { paused: isPaused } });
+    }
+
+    function updateStatus(t) { document.getElementById('status-display').innerText = t; }
+    function highlightLevelBtn(lvl) {
+        document.querySelectorAll('.btn-main').forEach(b => b.classList.remove('active-lvl'));
+        if (lvl >= 0) document.getElementById(`btn-lvl-${lvl}`).classList.add('active-lvl');
+    }
+    function broadcastTimer(sec, ln) {
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec, lvl: ln } });
+    }
+
+    function checkAllDone() {
+        const total = document.querySelectorAll('.player-row').length;
+        if (total === 0) return;
+        if (respondedPlayers.size >= total) { stopLogic(); broadcastTimer(0, ""); revealAnswer(); }
+        else if ((respondedPlayers.size + skippedPlayers.size) >= total) {
+            stopLogic(); broadcastTimer(0, "");
+            if (activeLevel < 2 && activeLevel !== -1) startLevelSequence(activeLevel + 1);
+            else revealAnswer();
+        }
+    }
+
+    document.getElementById('excel-file').addEventListener('change', e => {
+        const reader = new FileReader();
+        reader.onload = ev => { processData(XLSX.read(ev.target.result, { type: 'binary' })); };
+        reader.readAsBinaryString(e.target.files[0]);
+    });
+
+    async function loadFromGSheets() {
+        const url = document.getElementById('gsheets-url').value;
+        try { const r = await fetch(url); const t = await r.text(); processData(XLSX.read(t, {type:'string'})); } catch(e){alert("Ошибка");}
+    }
+
+    function processData(wb) {
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        playlist = XLSX.utils.sheet_to_json(sheet, {header:1}).filter(r => r[0] && r[0].toString().includes('http'));
+        currentIndex = 0; updateTrackDisplay();
+    }
+
+    async function changeTrack(dir) {
+        let n = currentIndex + dir; if (n < 0 || n >= playlist.length) return;
+        stopLogic(); currentIndex = n;
+        activeLevel = -1;
+        highlightLevelBtn(-1);
+        respondedPlayers.clear(); skippedPlayers.clear();
+        document.getElementById('chat-sidebar').innerHTML = '';
+        document.querySelectorAll('.player-row').forEach(r => r.classList.remove('is-answered', 'is-skipped'));
+        await supabaseClient.from('quiz_chat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        updateTrackDisplay();
+    }
+
+    function updateTrackDisplay() {
+        document.getElementById('track-counter').innerText = `Песня ${playlist.length?currentIndex+1:0}/${playlist.length}`;
+        document.getElementById('answer-box').innerText = "******";
+        isAnswerShown = false;
+    }
+
+    function toggleAnswer() {
+        isAnswerShown = !isAnswerShown;
+        document.getElementById('answer-box').innerText = isAnswerShown ? (playlist[currentIndex][1] || "---") : "******";
+    }
+
+    function toggleSettings() { const s = document.getElementById('settings-panel'); s.style.display = s.style.display==='block'?'none':'block'; }
+    function extractVideoId(u) { return u.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/)?.[1]; }
+
+    const channel = supabaseClient.channel('quiz_chat');
+    channel.on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        for (const id in state) { state[id].forEach(p => { playerLastSeen[p.user] = Date.now(); syncPlayerRow(p.user); }); }
+    }).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_chat' }, payload => {
+        const d = payload.new;
+        const pParts = d.player_name.split(' ');
+        const lvlTag = pParts[0] + " " + pParts[1];
+        const login = pParts.slice(2).join(' ');
+        if (d.message === "SKIP") { skippedPlayers.add(login); document.getElementById(`row-user-${login}`)?.classList.add('is-skipped'); }
+        else { respondedPlayers.add(login); document.getElementById(`row-user-${login}`)?.classList.add('is-answered'); displayChatBar(d, login, lvlTag); }
+        checkAllDone();
+    }).subscribe();
+
+    setInterval(() => {
+        if (isPaused) return;
+        const now = Date.now();
+        for (const login in playerLastSeen) {
+            if (now - playerLastSeen[login] > 180000) { document.getElementById(`row-user-${login}`)?.remove(); delete playerLastSeen[login]; }
+        }
+    }, 10000);
+
+    function syncPlayerRow(login) {
+        if (!document.getElementById(`row-user-${login}`)) {
+            const score = playersScores[login] || 0;
+            document.getElementById('players-list').insertAdjacentHTML('beforeend', `<div class="player-row" id="row-user-${login}" data-score="${score}">
+                <div style="flex:1"><b>${login}</b></div>
+                <input type="number" class="score-input" value="${score}" id="score-${login}" onchange="playersScores['${login}']=this.value; sortPlayers();">
+            </div>`);
+        }
+    }
+
+    function sortPlayers() {
+        const list = document.getElementById('players-list');
+        [...list.querySelectorAll('.player-row')].sort((a,b)=>b.querySelector('.score-input').value - a.querySelector('.score-input').value).forEach(r=>list.appendChild(r));
+    }
+
+    function displayChatBar(data, login, lvl) {
+        const side = document.getElementById('chat-sidebar');
+        const sid = btoa(login + data.id).slice(0,8);
+        const parts = data.message.split(' | ');
+        let lIdx = lvl?.includes('2')?1:(lvl?.includes('3')?2:0);
+        const bar = document.createElement('div');
+        bar.className = 'chat-bar'; bar.id = `bar-${sid}`;
+        bar.innerHTML = `<small>${lvl || '?'}</small> <b>${login}</b>
+            <div class="eval-row-inline" style="display:none">
+                <div style="font-size:10px; flex:1">${parts[0]} / ${parts[1]}</div>
+                <div class="eval-btns-minimal">
+                    <button class="btn-e-1" onclick="calc('${login}','${sid}',${lIdx},1,1)">1+1</button>
+                    <button class="btn-e-2" onclick="calc('${login}','${sid}',${lIdx},1,0.5)">1+½</button>
+                    <button class="btn-e-3" onclick="calc('${login}','${sid}',${lIdx},0.5,0.5)">½+½</button>
+                    <button class="btn-e-4" onclick="calc('${login}','${sid}',${lIdx},1,0)">1+0</button>
+                    <button class="btn-e-5" onclick="calc('${login}','${sid}',${lIdx},0,0)">0</button>
+                </div>
+            </div>`;
+        bar.onclick = (e) => { if(e.target.tagName!=='BUTTON') { bar.classList.toggle('open'); bar.querySelector('.eval-row-inline').style.display = bar.classList.contains('open')?'flex':'none'; } };
+        side.appendChild(bar);
+    }
+
+    function calc(login, sid, lvl, mArt, mSng) {
+        const cfg = document.getElementById(`row-lvl-${lvl}`);
+        const pA = parseFloat(cfg.querySelector('.set-pArt').value), pS = parseFloat(cfg.querySelector('.set-pSong').value);
+        const def = parseFloat(cfg.querySelector('.set-debuff').value), cmb = parseFloat(cfg.querySelector('.set-combo').value);
+        let res = (mArt===1?pA:(mArt===0.5?pA*def:0)) + (mSng===1?pS:(mSng===0.5?pS*def:0));
+        if (mArt>0 && mSng>0) res += cmb;
+        const inp = document.getElementById(`score-${login}`);
+        if(inp) { 
+            // Складываем и убираем лишние нули
+            const newScore = Number((parseFloat(inp.value) + res).toFixed(1));
+            inp.value = newScore;
+            playersScores[login] = newScore; 
+            sortPlayers(); 
+        }
+        document.getElementById(`bar-${sid}`).remove();
+    }
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
