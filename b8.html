@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игрок - Quiz</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { background: #121212; color: white; font-family: 'Roboto', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .box { background: #1e1e1e; padding: 25px; border-radius: 15px; width: 100%; max-width: 400px; text-align: center; border: 1px solid #333; }
+        input { width: 100%; padding: 15px; margin: 8px 0; background: #2b2b2b; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; background: #0078d4; border: none; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; }
+        button:disabled { background: #333; color: #777; }
+        #player-timer { font-size: 64px; font-weight: bold; color: #0078d4; margin: 10px 0; }
+        .points-info { font-size: 11px; color: #666; margin-top: 15px; text-align: left; border-top: 1px solid #333; padding-top: 10px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen" class="box">
+        <h2>Quiz Login</h2>
+        <input type="text" id="username" placeholder="Логин">
+        <input type="password" id="password" placeholder="Пароль">
+        <button onclick="tryLogin()">ВОЙТИ</button>
+    </div>
+
+    <div id="game-screen" class="box hidden">
+        <div style="display:flex; justify-content: space-between; font-size: 12px; color: #888;">
+            <div id="track-val">0/0</div>
+            <div id="display-login" style="color: #0078d4;"></div>
+        </div>
+
+        <div id="lvl-badge" style="color: #D4AF37; font-weight: bold; margin-top: 10px;">ОЖИДАНИЕ</div>
+        <div id="player-timer">00</div>
+        
+        <input type="text" id="pArtist" placeholder="Исполнитель...">
+        <input type="text" id="pSong" placeholder="Название песни...">
+        
+        <button id="sendBtn" onclick="send()" disabled>ОТПРАВИТЬ</button>
+        <button id="skipBtn" onclick="skip()" style="background:transparent; color:#555; margin-top:10px;" disabled>Пропустить этап</button>
+        
+        <div id="status" style="margin-top:15px; font-size: 14px; color: #0078d4;">Ждем админа...</div>
+
+        <div class="points-info">
+            • Артист: <span id="inf-art">?</span> (½: <span id="inf-def">?</span>) | 
+            Песня: <span id="inf-sng">?</span> (½: <span id="inf-sdef">?</span>)<br>
+            • Комбо: +<span id="inf-cmb">?</span> баллов
+        </div>
+    </div>
+
+<script>
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    let myLogin = "", currentSongNum = -1, hasAnswered = false, localTimerId;
+
+    async function tryLogin() {
+        const u = document.getElementById('username').value, p = document.getElementById('password').value;
+        const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', u).eq('password', p).single();
+        if (data) { 
+            localStorage.setItem('quiz_user', u); localStorage.setItem('quiz_pass', p);
+            myLogin = u; showGameScreen();
+        } else alert("Ошибка входа");
+    }
+
+    function showGameScreen() {
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        document.getElementById('display-login').innerText = myLogin;
+        supabaseClient.channel('quiz_chat').track({ user: myLogin });
+    }
+
+    async function send() {
+        if (hasAnswered) return;
+        const a = document.getElementById('pArtist').value.trim(), s = document.getElementById('pSong').value.trim();
+        hasAnswered = true;
+        await supabaseClient.from('quiz_chat').insert([{ player_name: `${document.getElementById('lvl-badge').innerText} (${myLogin})`, message: `${a} | ${s}` }]);
+        document.getElementById('status').innerText = "Ответ принят!";
+        toggleInputs(false);
+    }
+
+    async function skip() {
+        await supabaseClient.from('quiz_chat').insert([{ player_name: `(${myLogin})`, message: "SKIP" }]);
+        document.getElementById('status').innerText = "Пропущено";
+        toggleInputs(false);
+    }
+
+    function toggleInputs(en) {
+        document.getElementById('sendBtn').disabled = !en || hasAnswered;
+        document.getElementById('skipBtn').disabled = !en || hasAnswered;
+    }
+
+    const channel = supabaseClient.channel('quiz_chat');
+    channel.on('broadcast', { event: 'sync_state' }, p => {
+        const d = p.payload;
+        document.getElementById('track-val').innerText = `${d.songNum}/${d.totalSongs}`;
+        document.getElementById('lvl-badge').innerText = d.level;
+        if (currentSongNum !== d.songNum) {
+            currentSongNum = d.songNum; hasAnswered = false;
+            document.getElementById('pArtist').value = ""; document.getElementById('pSong').value = "";
+        }
+        if(d.points) {
+            const pA = parseFloat(d.points.art), pS = parseFloat(d.points.sng), def = parseFloat(d.points.def);
+            document.getElementById('inf-art').innerText = pA; document.getElementById('inf-def').innerText = (pA*def).toFixed(1);
+            document.getElementById('inf-sng').innerText = pS; document.getElementById('inf-sdef').innerText = (pS*def).toFixed(1);
+            document.getElementById('inf-cmb').innerText = d.points.cmb;
+        }
+        toggleInputs(false);
+    }).on('broadcast', { event: 'start_timer' }, p => {
+        let left = p.payload.sec;
+        if (left > 0) {
+            toggleInputs(true);
+            clearInterval(localTimerId);
+            localTimerId = setInterval(() => {
+                left--; document.getElementById('player-timer').innerText = left < 10 ? '0'+left : left;
+                if(left <= 0) { clearInterval(localTimerId); toggleInputs(false); }
+            }, 1000);
+        } else { clearInterval(localTimerId); document.getElementById('player-timer').innerText = "00"; toggleInputs(false); }
+    }).subscribe();
+
+    window.onload = () => { if(localStorage.getItem('quiz_user')) { myLogin = localStorage.getItem('quiz_user'); showGameScreen(); } };
+</script>
+</body>
+</html>
