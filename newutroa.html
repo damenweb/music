@@ -683,8 +683,8 @@
                 
                 return `
                 <div class="eval-actions">
-                    <button class="btn-eval be-yes ${isFull?'selected':''}" onclick="setScore('${login}', '${type}', ${maxPts})">${maxPts}</button>
-                    <button class="btn-eval be-part ${isPart?'selected':''}" onclick="setScore('${login}', '${type}', ${(maxPts*kPts).toFixed(2)})">${(maxPts*kPts).toFixed(2)}</button>
+                    <button class="btn-eval be-yes ${isFull?'selected':''}" onclick="setScore('${login}', '${type}', ${maxPts})">${Number((maxPts).toFixed(2))}</button>
+                    <button class="btn-eval be-part ${isPart?'selected':''}" onclick="setScore('${login}', '${type}', ${(maxPts*kPts).toFixed(2)})">${Number((maxPts*kPts).toFixed(2))}</button>
                     <button class="btn-eval be-undo" onclick="setScore('${login}', '${type}', 0)">СБРОС</button>
                 </div>`;
             };
