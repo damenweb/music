@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Админка - Quiz PRO</title>
+    <title>Админка - Quiz</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -683,8 +683,8 @@
                 
                 return `
                 <div class="eval-actions">
-                    <button class="btn-eval be-yes ${isFull?'selected':''}" onclick="setScore('${login}', '${type}', ${maxPts})">${Number(maxPts.toFixed(2))}</button>
-                    <button class="btn-eval be-part ${isPart?'selected':''}" onclick="setScore('${login}', '${type}', ${(maxPts*kPts).toFixed(2)})">${Number((maxPts*kPts).toFixed(2))}</button>
+                    <button class="btn-eval be-yes ${isFull?'selected':''}" onclick="setScore('${login}', '${type}', ${maxPts})">+${Number(maxPts.toFixed(2))}</button>
+                    <button class="btn-eval be-part ${isPart?'selected':''}" onclick="setScore('${login}', '${type}', ${(maxPts*kPts).toFixed(2)})">+${Number((maxPts*kPts).toFixed(2))}</button>
                     <button class="btn-eval be-undo" onclick="setScore('${login}', '${type}', 0)">СБРОС</button>
                 </div>`;
             };
