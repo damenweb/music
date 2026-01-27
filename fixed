@@ -194,13 +194,13 @@
             tbody.innerHTML = '';
             d.allLevels.forEach((l, idx) => {
                 const isCurrent = idx === d.activeLvlIdx;
-                const artPart = (l.pArt * l.kArt).toFixed(1);
-                const sngPart = (l.pSong * l.kSong).toFixed(1);
+                const artPart = (l.pArt * l.kArt).toFixed(2);
+                const sngPart = (l.pSong * l.kSong).toFixed(2);
                 tbody.innerHTML += `
                     <tr>
                         <td class="${isCurrent?'highlight':''}">${idx+1}</td>
-                        <td class="${isCurrent?'highlight':''}">${l.pArt} <span style="color:#555">(${artPart})</span></td>
-                        <td class="${isCurrent?'highlight':''}">${l.pSong} <span style="color:#555">(${sngPart})</span></td>
+                        <td class="${isCurrent?'highlight':''}">${l.pArt} <span style="color:#555">(${Number(artPart.toFixed(2))})</span></td>
+                        <td class="${isCurrent?'highlight':''}">${l.pSong} <span style="color:#555">(${Number(songPart.toFixed(2))})</span></td>
                     </tr>
                 `;
             });
