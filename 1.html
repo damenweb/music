@@ -295,7 +295,10 @@
             height: '1', width: '1',
             playerVars: { 'autoplay': 0, 'controls': 0, 'disablekb': 1 },
             events: {
-                'onReady': (e) => e.target.setVolume(60),
+                'onReady': (e) => {
+                    e.target.mute();          // 🔑 важно
+                    e.target.setVolume(60);
+                },
                 'onStateChange': onPlayerStateChange
             }
         });
@@ -473,6 +476,7 @@
         } else {
             if (currentPhase === 'PLAYING' && wasPlayingBeforePause) {
                 ytPlayer.playVideo();
+                ytPlayer.unMute();
             }
         }
         supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'game_paused', payload: { paused: isPaused } });
