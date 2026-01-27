@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админка PRO - Quiz</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --gold: #D4AF37; --accent: #0078d4; --bg: #121212; --panel: #1e1e1e; --border: #333; --danger: #c62828; --success: #2e7d32; }
+        body { font-family: 'Roboto', sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* Header & Controls */
+        .header { padding: 20px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .main-controls { display: flex; flex-direction: column; align-items: center; padding: 20px; flex-shrink: 0; }
+        
+        /* Таблица */
+        .table-container { flex-grow: 1; overflow-y: auto; padding: 0 20px 20px 20px; }
+        table { width: 100%; border-collapse: collapse; background: var(--panel); font-size: 14px; }
+        th { position: sticky; top: 0; background: #252525; padding: 12px; border: 1px solid var(--border); }
+        td { padding: 10px; border: 1px solid var(--border); text-align: center; }
+        .row-answered { background: rgba(27, 120, 227, 0.2) !important; }
+        
+        /* Inputs & Buttons */
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .score-input { background: #000; border: 1px solid var(--accent); color: #fff; width: 60px; text-align: center; padding: 5px; border-radius: 4px; }
+        .btn { padding: 8px 16px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+        .btn-lvl { width: 80px; height: 80px; border-radius: 50%; margin: 0 10px; color: white; }
+        .active-lvl { outline: 4px solid white; box-shadow: 0 0 15px white; }
+        
+        #timer-display { font-size: 80px; font-family: monospace; color: var(--accent); margin: 10px 0; }
+        #status-bar { font-size: 18px; color: #888; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+        .eval-btn { font-size: 11px; padding: 4px 8px; margin: 2px; color: white; border-radius: 3px; border: none; cursor: pointer; }
+        
+        #settings-panel { position: absolute; top: 70px; right: 20px; background: var(--panel); padding: 15px; border: 1px solid var(--border); display: none; z-index: 100; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <button class="btn" style="background:var(--accent)" onclick="document.getElementById('file-input').click()">Загрузить Excel</button>
+        <input type="file" id="file-input" hidden accept=".xlsx, .xls">
+        <button class="btn" style="background:#444; margin-left:10px" onclick="toggleSettings()">⚙ Настройки</button>
+    </div>
+    <div id="track-info" style="font-size: 20px; font-weight: bold;">Песня 0 / 0</div>
+    <div>
+        <button class="btn" style="background:var(--danger)" onclick="resetGame()">RESET</button>
+        <button id="btn-pause" class="btn" style="background:#f9a825; margin-left:10px" onclick="togglePause()">ПАУЗА</button>
+    </div>
+</div>
+
+<div class="main-controls">
+    <div id="status-bar">ОЖИДАНИЕ НАЧАЛА РАУНДА</div>
+    <div id="timer-display">00</div>
+    <div style="margin-bottom: 20px;">
+        <button id="btn-lvl-0" class="btn btn-lvl" style="background:#D4AF37" onclick="manualStart(0)">П.1</button>
+        <button id="btn-lvl-1" class="btn btn-lvl" style="background:#B0B0B0" onclick="manualStart(1)">П.2</button>
+        <button id="btn-lvl-2" class="btn btn-lvl" style="background:#A0522D" onclick="manualStart(2)">П.3</button>
+        <button id="btn-lvl-3" class="btn btn-lvl" style="background:var(--accent)" onclick="manualStart(3)">FULL</button>
+    </div>
+    <div id="answer-box" style="font-size: 24px; color: var(--gold); font-weight: bold;">******</div>
+    <div style="margin-top: 15px;">
+        <button class="btn" onclick="changeTrack(-1)">⏮</button>
+        <button class="btn" style="background:var(--accent); width: 150px;" onclick="toggleAnswer()">ОТВЕТ</button>
+        <button class="btn" onclick="changeTrack(1)">⏭</button>
+    </div>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Игрок</th>
+                <th>Очки</th>
+                <th>Исполнитель</th>
+                <th>Песня</th>
+                <th>Этап</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody id="game-table-body"></tbody>
+    </table>
+</div>
+
+<div id="settings-panel">
+    <table style="font-size: 12px;">
+        <thead><tr><th>Ур</th><th>Таймер</th><th>Арт.</th><th>Песня</th><th>К.Арт</th><th>К.Пес</th><th>Комбо</th></tr></thead>
+        <tbody id="settings-body"></tbody>
+    </table>
+    <button class="btn" style="width:100%; margin-top:10px; background:var(--success)" onclick="saveSettings()">Сохранить в облако</button>
+</div>
+
+<div id="yt-player-container" style="display:none"><div id="yt-player"></div></div>
+
+<script>
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    let playlist = [], currentIndex = 0;
+    let ytPlayer, timerId, playTimeout;
+    let isAnswerShown = false, isPaused = false;
+    let activeLevel = -1, currentPhase = 'IDLE';
+    let playersData = {}; // { login: { score, art, sng, lvl, status } }
+    let gameSettings = [];
+
+    // --- Инициализация ---
+    window.onload = async () => {
+        await loadSettings();
+        await loadState();
+        await syncPlayers();
+    };
+
+    function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('yt-player', {
+            height: '1', width: '1',
+            playerVars: { 'autoplay': 0, 'controls': 0 },
+            events: { 'onStateChange': onPlayerStateChange }
+        });
+    }
+
+    // --- Настройки и Состояние ---
+    async function loadSettings() {
+        const { data } = await supabaseClient.from('quiz_settings').select('*').eq('id', 1).single();
+        if (data) {
+            gameSettings = data.config; // Ожидается массив объектов для 3 уровней
+            renderSettingsTable();
+        }
+    }
+
+    async function saveSettings() {
+        const rows = document.querySelectorAll('#settings-body tr');
+        let newConfig = [];
+        rows.forEach(r => {
+            newConfig.push({
+                timer: r.querySelector('.s-timer').value,
+                pArt: r.querySelector('.s-pArt').value,
+                pSng: r.querySelector('.s-pSng').value,
+                dArt: r.querySelector('.s-dArt').value,
+                dSng: r.querySelector('.s-dSng').value,
+                cmb: r.querySelector('.s-cmb').value,
+                dur: r.querySelector('.s-dur').value
+            });
+        });
+        await supabaseClient.from('quiz_settings').update({ config: newConfig }).eq('id', 1);
+        alert("Настройки сохранены");
+    }
+
+    async function loadState() {
+        const { data } = await supabaseClient.from('quiz_state').select('*').eq('id', 1).single();
+        if (data) {
+            currentIndex = data.current_index;
+            isPaused = data.is_paused;
+            // Восстановление позиции при F5 без авто-старта музыки
+        }
+    }
+
+    // --- Логика Игры ---
+    function onPlayerStateChange(e) {
+        if (e.data == YT.PlayerState.PLAYING && currentPhase === 'PRELOAD') {
+            currentPhase = 'PLAYING';
+            updateStatus("ОЖИДАНИЕ ОТВЕТОВ");
+            if (activeLevel < 3) {
+                const cfg = gameSettings[activeLevel];
+                const totalTime = parseInt(cfg.timer) + Math.ceil(parseFloat(cfg.dur));
+                startInternalCountdown(totalTime);
+                broadcast('start_timer', { sec: totalTime });
+            }
+            // Таймер остановки трека
+            clearTimeout(playTimeout);
+            playTimeout = setTimeout(() => {
+                ytPlayer.pauseVideo();
+                if (activeLevel >= 3) { currentPhase = 'IDLE'; updateStatus("КОНЕЦ РАУНДА"); }
+            }, parseFloat(gameSettings[activeLevel]?.dur || 30) * 1000);
+        }
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('btn-pause');
+        btn.innerText = isPaused ? "ПРОДОЛЖИТЬ" : "ПАУЗА";
+        btn.style.background = isPaused ? var(--success) : "#f9a825";
+
+        if (isPaused) {
+            ytPlayer.pauseVideo();
+            clearInterval(timerId);
+        } else {
+            // FIX: Если мы в фазе проигрывания, только тогда возвращаем музыку
+            if (currentPhase === 'PLAYING') {
+                ytPlayer.playVideo();
+                // Возобновляем таймер, если он был
+                const currentLeft = parseInt(document.getElementById('timer-display').innerText);
+                if (currentLeft > 0) startInternalCountdown(currentLeft);
+            }
+        }
+        broadcast('game_paused', { paused: isPaused });
+    }
+
+    async function changeTrack(dir) {
+        let n = currentIndex + dir;
+        if (n < 0 || n >= playlist.length) return;
+        
+        stopAll();
+        currentIndex = n;
+        activeLevel = -1;
+        isAnswerShown = false;
+        
+        // Сброс ответов игроков в базе для нового раунда
+        await supabaseClient.from('quiz_players').update({ 
+            current_ans_art: '', current_ans_sng: '', answered_at_lvl: '', status: 'idle' 
+        }).neq('login', '');
+        
+        await supabaseClient.from('quiz_state').update({ current_index: n }).eq('id', 1);
+        
+        updateStatus("ОЖИДАНИЕ НАЧАЛА РАУНДА");
+        renderTable(); // Сортировка обновится здесь
+        updateTrackDisplay();
+    }
+
+    function manualStart(lvl) {
+        activeLevel = lvl;
+        currentPhase = 'PRELOAD';
+        highlightBtn(lvl);
+        const row = playlist[currentIndex];
+        const vid = extractVid(row[0]);
+        const startSec = lvl === 3 ? row[3] : row[3 + lvl]; // B=1, C=2, D=3... Тайминги D,E,F -> index 3,4,5
+        
+        broadcast('sync_state', { 
+            songNum: currentIndex + 1, 
+            level: lvl === 3 ? "FULL" : `П.${lvl+1}`,
+            points: gameSettings[lvl] 
+        });
+
+        ytPlayer.loadVideoById({ videoId: vid, startSeconds: startSec });
+    }
+
+    // --- Работа с таблицей игроков ---
+    async function syncPlayers() {
+        // Подписка на изменения ответов
+        supabaseClient.channel('quiz_players')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_players' }, payload => {
+            renderTable();
+        }).subscribe();
+        
+        renderTable();
+    }
+
+    async function renderTable() {
+        const { data: players } = await supabaseClient.from('quiz_players').select('*');
+        const tbody = document.getElementById('game-table-body');
+        
+        // Сортировка только если раунд не активен (или по кнопке)
+        const sorted = players.sort((a, b) => b.score - a.score);
+        
+        tbody.innerHTML = sorted.map(p => {
+            const isAns = p.status === 'answered';
+            return `
+                <tr class="${isAns ? 'row-answered' : ''}">
+                    <td>${p.login}</td>
+                    <td><input type="number" class="score-input" value="${formatNum(p.score)}" onchange="updateScore('${p.login}', this.value)"></td>
+                    <td>${isAnswerShown || isAns ? p.current_ans_art : '***'}</td>
+                    <td>${isAnswerShown || isAns ? p.current_ans_sng : '***'}</td>
+                    <td>${p.answered_at_lvl || '-'}</td>
+                    <td>
+                        ${(isAnswerShown && isAns) ? renderEvalBtns(p) : ''}
+                        <button class="btn" style="background:#444; padding:2px 5px" onclick="removePlayer('${p.login}')">×</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function renderEvalBtns(p) {
+        const lvlIdx = parseInt(p.answered_at_lvl?.replace('П.', '')) - 1;
+        if (isNaN(lvlIdx)) return '';
+        const cfg = gameSettings[lvlIdx];
+        
+        const full = Number(cfg.pArt) + Number(cfg.pSng) + Number(cfg.cmb);
+        const artOnly = Number(cfg.pArt);
+        const sngOnly = Number(cfg.pSng);
+
+        return `
+            <button class="eval-btn" style="background:var(--success)" onclick="addPoints('${p.login}', ${full})">${full}</button>
+            <button class="eval-btn" style="background:#f9a825" onclick="addPoints('${p.login}', ${artOnly})">${artOnly}(А)</button>
+            <button class="eval-btn" style="background:#ef6c00" onclick="addPoints('${p.login}', ${sngOnly})">${sngOnly}(П)</button>
+            <button class="eval-btn" style="background:#444" onclick="addPoints('${p.login}', 0)">0</button>
+        `;
+    }
+
+    // --- Вспомогательные функции ---
+    function formatNum(n) { return Number.isInteger(n) ? n : n.toFixed(1); }
+    
+    function extractVid(url) { return url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/)?.[1]; }
+
+    function updateStatus(txt) { 
+        if (txt === "SHOW_ANS") {
+            const row = playlist[currentIndex];
+            document.getElementById('status-bar').innerText = `${row[1]} - ${row[2]}`;
+        } else {
+            document.getElementById('status-bar').innerText = txt;
+        }
+    }
+
+    function toggleAnswer() {
+        isAnswerShown = !isAnswerShown;
+        if (isAnswerShown) {
+            updateStatus("SHOW_ANS");
+            document.getElementById('answer-box').innerText = `${playlist[currentIndex][1]} - ${playlist[currentIndex][2]}`;
+        } else {
+            document.getElementById('answer-box').innerText = "******";
+        }
+        renderTable();
+    }
+
+    async function addPoints(login, pts) {
+        const { data } = await supabaseClient.from('quiz_players').select('score').eq('login', login).single();
+        const newScore = Number(data.score) + Number(pts);
+        await supabaseClient.from('quiz_players').update({ score: newScore, status: 'idle' }).eq('login', login);
+    }
+
+    async function resetGame() {
+        if(confirm("Полный сброс?")) {
+            location.reload();
+        }
+    }
+
+    function broadcast(event, payload) {
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event, payload });
+    }
+
+    // Обработка Excel
+    document.getElementById('file-input').addEventListener('change', e => {
+        const reader = new FileReader();
+        reader.onload = (ae) => {
+            const wb = XLSX.read(ae.target.result, {type:'binary'});
+            const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
+            playlist = data.filter(r => r[0] && r[0].toString().includes('http'));
+            updateTrackDisplay();
+        };
+        reader.readAsBinaryString(e.target.files[0]);
+    });
+
+    function updateTrackDisplay() {
+        document.getElementById('track-info').innerText = `Песня ${currentIndex + 1} / ${playlist.length}`;
+    }
+
+    function stopAll() {
+        clearInterval(timerId);
+        clearTimeout(playTimeout);
+        if(ytPlayer) ytPlayer.pauseVideo();
+        document.getElementById('timer-display').innerText = "00";
+        highlightBtn(-1);
+    }
+
+    function highlightBtn(lvl) {
+        document.querySelectorAll('.btn-lvl').forEach(b => b.classList.remove('active-lvl'));
+        if(lvl >= 0) document.getElementById(`btn-lvl-${lvl}`).classList.add('active-lvl');
+    }
+
+    function startInternalCountdown(sec) {
+        clearInterval(timerId);
+        let left = sec;
+        document.getElementById('timer-display').innerText = left;
+        timerId = setInterval(() => {
+            if(isPaused) return;
+            left--;
+            document.getElementById('timer-display').innerText = left < 10 ? '0'+left : left;
+            if(left <= 0) { clearInterval(timerId); broadcast('start_timer', {sec:0}); }
+        }, 1000);
+    }
+
+    function renderSettingsTable() {
+        const container = document.getElementById('settings-body');
+        container.innerHTML = gameSettings.map((s, i) => `
+            <tr>
+                <td>${i+1}</td>
+                <td><input type="number" class="s-timer" value="${s.timer}"></td>
+                <td><input type="number" class="s-pArt" value="${s.pArt}"></td>
+                <td><input type="number" class="s-pSng" value="${s.pSng}"></td>
+                <td><input type="number" step="0.1" class="s-dArt" value="${s.dArt}"></td>
+                <td><input type="number" step="0.1" class="s-dSng" value="${s.dSng}"></td>
+                <td><input type="number" class="s-cmb" value="${s.cmb}"></td>
+                <td style="display:none"><input type="number" class="s-dur" value="${s.dur}"></td>
+            </tr>
+        `).join('');
+    }
+    
+    function toggleSettings() {
+        const p = document.getElementById('settings-panel');
+        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+    }
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
