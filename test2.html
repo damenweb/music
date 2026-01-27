@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админка - Quiz (PRO) - Unified</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; --accent: #0078d4; --border: #333333; --danger: #c62828; --answered: #1b78e3; --skipped: #555555; }
+        body { font-family: 'Roboto', sans-serif; background-color: var(--dark-bg); color: var(--text-color); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* LOGIN */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .login-box { background: #1e1e1e; padding: 40px; border-radius: 12px; border: 1px solid var(--accent); text-align: center; }
+        .login-box input { display: block; width: 250px; padding: 12px; margin: 20px 0; background: #000; border: 1px solid #444; color: white; text-align: center; border-radius: 4px; }
+        .btn-login { background: var(--accent); color: white; border: none; padding: 12px 24px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; }
+
+        /* LAYOUT */
+        .game-section { width: 60%; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: start; border-right: 1px solid var(--border); position: relative; overflow-y: auto; }
+        .unified-table-section { width: 40%; padding: 0; background-color: var(--panel-bg); display: flex; flex-direction: column; overflow: hidden; border-left: 1px solid #333; }
+
+        /* CONTROLS */
+        .upload-area { display: flex; gap: 10px; margin-bottom: 20px; width: 100%; justify-content: center; }
+        .top-actions { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .btn-action { background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; cursor: pointer; font-size: 12px; text-transform: uppercase; }
+        .btn-reset { background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 8px 16px; cursor: pointer; font-size: 12px; text-transform: uppercase; }
+        .btn-pause { background: #c62828; color: white; border: none; padding: 8px 16px; cursor: pointer; font-weight: bold; border-radius: 4px; font-size: 12px; }
+        .btn-pause.paused { background: #ffeb3b; color: black; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+
+        /* DISPLAY */
+        #track-counter { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+        #status-display { font-size: 14px; color: #888; margin-bottom: 5px; height: 20px; text-transform: uppercase; letter-spacing: 2px; }
+        #timer-display { font-size: 100px; font-weight: 200; margin-bottom: 10px; font-family: monospace; color: var(--accent); line-height: 1; }
+        
+        .play-row { display: flex; gap: 15px; margin-bottom: 20px; }
+        .btn-main { width: 80px; height: 80px; border-radius: 50%; border: none; cursor: pointer; font-weight: bold; font-size: 14px; color: white; transition: transform 0.1s; display: flex; align-items: center; justify-content: center; }
+        .btn-main.active-lvl { outline: 4px solid white; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); } }
+
+        #answer-box { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 15px; min-height: 40px; color: var(--gold); padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.3); width: 90%; word-break: break-word;}
+        
+        .nav-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .btn-nav { padding: 10px 25px; background: #333; color: #fff; border: none; cursor: pointer; font-weight: bold; border-radius: 2px; }
+
+        /* SETTINGS */
+        #settings-panel { width: 95%; margin-top: 10px; padding: 10px; border: 1px solid #444; background: #1a1a1a; display: none; }
+        .settings-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .settings-table th { text-align: left; color: #888; padding: 4px; }
+        .settings-table td { padding: 2px; }
+        .settings-table input { width: 40px; background: #222; border: 1px solid #555; color: #fff; text-align: center; padding: 4px; }
+
+        /* UNIFIED TABLE */
+        .u-table-container { flex: 1; overflow-y: auto; padding: 0; }
+        .u-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .u-table th { position: sticky; top: 0; background: #252525; padding: 10px; text-align: left; z-index: 10; border-bottom: 1px solid #444; }
+        .u-table td { padding: 8px; border-bottom: 1px solid #333; vertical-align: middle; }
+        .u-row-answered { background-color: rgba(27, 120, 227, 0.2); }
+        .u-row-answered.revealed { background-color: transparent; } /* Когда ответ открыт, подсветка не нужна, или можно оставить */
+        
+        .ans-text { font-family: monospace; color: #ddd; display: block; margin-bottom: 4px; font-size: 11px;}
+        .stage-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; background: #444; font-size: 10px; }
+        
+        .score-input-mini { width: 50px; background: #000; border: 1px solid #555; color: #fff; text-align: center; font-weight: bold; }
+        
+        /* Evaluation Buttons */
+        .eval-group { display: flex; gap: 2px; margin-top: 2px; }
+        .btn-eval { padding: 2px 6px; border: none; cursor: pointer; font-size: 10px; font-weight: bold; color: white; border-radius: 2px; opacity: 0.6; }
+        .btn-eval:hover { opacity: 1; }
+        .be-yes { background: #2e7d32; }
+        .be-part { background: #f9a825; color: black; }
+        .be-no { background: #c62828; }
+        .be-undo { background: #555; }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div class="login-box">
+        <h2>Quiz Admin Panel</h2>
+        <input type="password" id="admin-password" placeholder="Пароль" onkeydown="if(event.key==='Enter') login()">
+        <button class="btn-login" onclick="login()">ВОЙТИ</button>
+    </div>
+</div>
+
+<div class="game-section">
+    <div class="top-actions">
+        <button class="btn-reset" onclick="hardReset()">RESET (F5)</button>
+        <button id="btn-pause" class="btn-pause" onclick="togglePause()">ПАУЗА</button>
+        <button class="btn-action" onclick="toggleSettings()">Настройки</button>
+    </div>
+
+    <div class="upload-area">
+        <input type="file" id="excel-file" hidden accept=".xlsx, .xls">
+        <button class="btn-action" onclick="document.getElementById('excel-file').click()">Загрузить Excel</button>
+        <input type="text" id="gsheets-url" style="background:#121212; border:1px solid #444; color:white; padding:8px; width: 100px;" placeholder="GSheet CSV URL">
+        <button class="btn-action" onclick="loadFromGSheets()">Загр. URL</button>
+    </div>
+
+    <div id="track-counter">Песня 0/0</div>
+    <div id="status-display">ОЖИДАНИЕ НАЧАЛА РАУНДА</div>
+    <div id="timer-display">00</div>
+    
+    <div class="play-row">
+        <button id="btn-lvl-0" class="btn-main" style="background:var(--gold)" onclick="manualStart(0)">▶ П.1</button>
+        <button id="btn-lvl-1" class="btn-main" style="background:var(--silver)" onclick="manualStart(1)">▶ П.2</button>
+        <button id="btn-lvl-2" class="btn-main" style="background:var(--bronze)" onclick="manualStart(2)">▶ П.3</button>
+        <button id="btn-lvl-3" class="btn-main" style="background:var(--accent)" onclick="manualStart(3)">FULL</button>
+    </div>
+
+    <div id="answer-box">******</div>
+
+    <div class="nav-row">
+        <button class="btn-nav" onclick="changeTrack(-1)">⏮ Пред.</button>
+        <button id="toggle-ans-btn" class="btn-nav" style="background: var(--accent)" onclick="toggleAnswer()">ОТВЕТ</button>
+        <button class="btn-nav" onclick="changeTrack(1)">След. ⏭</button>
+    </div>
+    
+    <div id="settings-panel">
+        <div style="margin-bottom:5px; font-size:12px; color:#aaa;">Изменения сохраняются автоматически в облаке.</div>
+        <table class="settings-table">
+            <thead>
+                <tr><th>Ур.</th> <th>Длит.</th> <th>Таймер</th> <th>Арт. Балл</th> <th>Пес. Балл</th> <th>К. Арт</th> <th>К. Пес</th> <th>Комбо</th></tr>
+            </thead>
+            <tbody>
+                <tr id="row-lvl-0">
+                    <td>1</td>
+                    <td><input type="number" step="0.1" class="set-dur" value="1.5"></td>
+                    <td><input type="number" class="set-timer" value="20"></td>
+                    <td><input type="number" class="set-pArt" value="4"></td>
+                    <td><input type="number" class="set-pSong" value="4"></td>
+                    <td><input type="number" step="0.1" class="set-cArt" value="0.5"></td>
+                    <td><input type="number" step="0.1" class="set-cSong" value="0.5"></td>
+                    <td><input type="number" class="set-combo" value="2"></td>
+                </tr>
+                <tr id="row-lvl-1">
+                    <td>2</td>
+                    <td><input type="number" step="0.1" class="set-dur" value="5.0"></td>
+                    <td><input type="number" class="set-timer" value="25"></td>
+                    <td><input type="number" class="set-pArt" value="2"></td>
+                    <td><input type="number" class="set-pSong" value="2"></td>
+                    <td><input type="number" step="0.1" class="set-cArt" value="0.5"></td>
+                    <td><input type="number" step="0.1" class="set-cSong" value="0.5"></td>
+                    <td><input type="number" class="set-combo" value="1"></td>
+                </tr>
+                <tr id="row-lvl-2">
+                    <td>3</td>
+                    <td><input type="number" step="0.1" class="set-dur" value="12.0"></td>
+                    <td><input type="number" class="set-timer" value="30"></td>
+                    <td><input type="number" class="set-pArt" value="1"></td>
+                    <td><input type="number" class="set-pSong" value="1"></td>
+                    <td><input type="number" step="0.1" class="set-cArt" value="0.5"></td>
+                    <td><input type="number" step="0.1" class="set-cSong" value="0.5"></td>
+                    <td><input type="number" class="set-combo" value="0.5"></td>
+                </tr>
+            </tbody>
+        </table>
+        <button onclick="saveSettingsToSupabase()" style="margin-top:10px; padding:5px 10px; background:#333; color:white; border:none; cursor:pointer;">Принудительно сохранить</button>
+    </div>
+</div>
+
+<div class="unified-table-section">
+    <div style="padding:10px; background:#252525; font-weight:bold; border-bottom:1px solid #444;">Игроки / Ответы</div>
+    <div class="u-table-container">
+        <table class="u-table">
+            <thead>
+                <tr>
+                    <th width="20%">Игрок</th>
+                    <th width="10%">Очки</th>
+                    <th width="30%">Артист</th>
+                    <th width="30%">Песня</th>
+                    <th width="10%">Этап</th>
+                </tr>
+            </thead>
+            <tbody id="unified-body">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="player-api-container" style="display:none;"><div id="yt-player"></div></div>
+
+<script>
+    // --- CONFIG ---
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    // --- STATE VARIABLES ---
+    let playlist = [];
+    let currentIndex = 0;
+    let ytPlayer;
+    let timerId; 
+    let playTimeout;
+    let remainingTime = 0; // Для паузы
+    let startTime = 0;     // Для отсчета паузы
+
+    let isAnswerShown = false;
+    let isPaused = false;
+    let activeLevel = -1;
+    let currentPhase = 'IDLE'; // IDLE, PRELOAD, PLAYING
+
+    let playersScores = {}; // { login: score }
+    let currentRoundAnswers = {}; // { login: { msg, stage, calculated: bool, history: [] } }
+    let roundResponded = new Set(); 
+    
+    // --- INITIALIZATION ---
+    
+    async function login() {
+        const pass = document.getElementById('admin-password').value;
+        const { data } = await supabaseClient.from('quiz_users').select('password').eq('username', 'admin').single();
+        if (data && data.password === pass) {
+            document.getElementById('login-screen').style.display = 'none';
+            sessionStorage.setItem('quiz_authorized', 'true');
+            restoreGlobalState();
+            loadSettingsFromSupabase();
+        }
+    }
+    if (sessionStorage.getItem('quiz_authorized') === 'true') {
+        document.getElementById('login-screen').style.display = 'none';
+        restoreGlobalState();
+        loadSettingsFromSupabase();
+    }
+
+    function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('yt-player', {
+            height: '1', width: '1',
+            playerVars: { 'autoplay': 0, 'controls': 0, 'disablekb': 1 },
+            events: {
+                'onReady': (e) => e.target.setVolume(70),
+                'onStateChange': onPlayerStateChange
+            }
+        });
+    }
+
+    // --- GAME LOGIC ---
+
+    function onPlayerStateChange(event) {
+        if (event.data == YT.PlayerState.PLAYING && currentPhase === 'PRELOAD') {
+            currentPhase = 'PLAYING';
+            updateStatus("ОЖИДАНИЕ ОТВЕТОВ");
+            
+            // Запуск таймера подсказки
+            if (activeLevel < 3) {
+                const cfg = getSettingsRow(activeLevel);
+                const tSec = parseInt(cfg.timer.value);
+                const dur = parseFloat(cfg.dur.value);
+                broadcastTimer(tSec + Math.ceil(dur), `Подсказка ${activeLevel+1}`);
+                startInternalCountdown(tSec + Math.ceil(dur));
+            }
+
+            // Запуск таймера остановки музыки
+            const cfg = activeLevel === 3 ? { dur: {value: 300} } : getSettingsRow(activeLevel);
+            const duration = parseFloat(cfg.dur.value);
+            
+            startPlayTimer(duration);
+        }
+    }
+
+    function startPlayTimer(sec) {
+        clearTimeout(playTimeout);
+        remainingTime = sec * 1000;
+        startTime = Date.now();
+        
+        playTimeout = setTimeout(() => {
+            finishPlayPhase();
+        }, remainingTime);
+    }
+
+    function finishPlayPhase() {
+        ytPlayer.pauseVideo();
+        remainingTime = 0;
+        if (activeLevel >= 3) { 
+            currentPhase = 'IDLE'; 
+            updateStatus("КОНЕЦ ТРЕКА"); 
+            highlightLevelBtn(-1); 
+        }
+    }
+
+    function startInternalCountdown(left) {
+        clearInterval(timerId);
+        document.getElementById('timer-display').innerText = left;
+        timerId = setInterval(() => {
+            if(isPaused) return;
+            left--;
+            document.getElementById('timer-display').innerText = left < 10 ? '0'+left : left;
+            if (left <= 0) { clearInterval(timerId); handleTimerEnd(); }
+        }, 1000);
+    }
+
+    function handleTimerEnd() {
+        broadcastTimer(0, "");
+        if (activeLevel < 2 && activeLevel !== -1) {
+            startLevelSequence(activeLevel + 1);
+        } else {
+            activeLevel = -1; 
+            highlightLevelBtn(-1); 
+            revealAnswer();
+        }
+    }
+
+    function manualStart(lvl) {
+        if(isPaused) togglePause();
+        startLevelSequence(lvl);
+    }
+
+    async function startLevelSequence(lvl) {
+        if (!playlist[currentIndex]) return;
+        stopLogic();
+        activeLevel = lvl;
+        currentPhase = 'PRELOAD';
+        updateStatus("ЗАГРУЗКА...");
+        highlightLevelBtn(lvl);
+        
+        const row = playlist[currentIndex];
+        // NEW EXCEL MAPPING: 0=Url, 1=Art, 2=Song, 3=T1, 4=T2, 5=T3
+        const vid = extractVideoId(row[0].toString());
+        // level 0->row[3], 1->row[4], 2->row[5], 3->row[3] (full)
+        const startSec = (lvl === 3 ? row[3] : row[3+lvl]) || 0;
+
+        let pointsObj = null;
+        if(lvl < 3) {
+            const cfg = getSettingsRow(lvl);
+            pointsObj = {
+                art: cfg.pArt.value,
+                sng: cfg.pSong.value,
+                cArt: cfg.cArt.value,
+                cSong: cfg.cSong.value,
+                cmb: cfg.combo.value
+            };
+        }
+
+        await supabaseClient.channel('quiz_chat').send({ 
+            type: 'broadcast', event: 'sync_state', 
+            payload: { 
+                songNum: currentIndex + 1, 
+                totalSongs: playlist.length, 
+                level: lvl === 3 ? "FULL" : `Подсказка ${lvl+1}`,
+                points: pointsObj
+            } 
+        });
+
+        ytPlayer.loadVideoById({ videoId: vid, startSeconds: startSec });
+        saveGlobalState();
+    }
+
+    function stopLogic() {
+        clearTimeout(playTimeout);
+        clearInterval(timerId);
+        remainingTime = 0;
+        if(ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
+        document.getElementById('timer-display').innerText = "00";
+    }
+
+    // --- PAUSE LOGIC FIXED ---
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('btn-pause');
+        btn.classList.toggle('paused', isPaused);
+        
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'game_paused', payload: { paused: isPaused } });
+
+        if (!ytPlayer) return;
+
+        if (isPaused) {
+            // Ставим на паузу
+            ytPlayer.pauseVideo();
+            // Запоминаем сколько осталось играть
+            clearTimeout(playTimeout);
+            const elapsed = Date.now() - startTime;
+            remainingTime = Math.max(0, remainingTime - elapsed);
+        } else {
+            // Снимаем с паузы
+            if (currentPhase === 'PLAYING' && remainingTime > 0) {
+                ytPlayer.playVideo();
+                startTime = Date.now();
+                playTimeout = setTimeout(() => {
+                    finishPlayPhase();
+                }, remainingTime);
+            }
+        }
+    }
+
+    // --- ANSWER LOGIC ---
+
+    function revealAnswer() {
+        isAnswerShown = true;
+        const row = playlist[currentIndex];
+        const ansText = row ? `${row[1]} - ${row[2]}` : "---";
+        document.getElementById('answer-box').innerText = ansText;
+        updateStatus("ОТВЕТ ОТКРЫТ");
+        renderUnifiedTable();
+        saveGlobalState();
+    }
+
+    function toggleAnswer() {
+        isAnswerShown = !isAnswerShown;
+        if(isAnswerShown) {
+             const row = playlist[currentIndex];
+             document.getElementById('answer-box').innerText = row ? `${row[1]} - ${row[2]}` : "---";
+        } else {
+             document.getElementById('answer-box').innerText = "******";
+        }
+        renderUnifiedTable();
+    }
+
+    function changeTrack(dir) {
+        let n = currentIndex + dir; 
+        if (n < 0 || n >= playlist.length) return;
+        
+        // SORT PLAYERS ON NEW ROUND
+        sortPlayers(); 
+
+        stopLogic(); 
+        currentIndex = n;
+        activeLevel = -1;
+        highlightLevelBtn(-1);
+        
+        // Reset Round Data
+        currentRoundAnswers = {};
+        roundResponded.clear();
+        
+        isAnswerShown = false;
+        updateTrackDisplay();
+        
+        // Очищаем чат в базе
+        supabaseClient.from('quiz_chat').delete().neq('id', '00000000-0000-0000-0000-000000000000').then();
+        updateStatus("ОЖИДАНИЕ НАЧАЛА РАУНДА");
+        renderUnifiedTable();
+        saveGlobalState();
+    }
+
+    function updateTrackDisplay() {
+        document.getElementById('track-counter').innerText = `Песня ${playlist.length?currentIndex+1:0}/${playlist.length}`;
+        document.getElementById('answer-box').innerText = "******";
+    }
+
+    // --- UNIFIED TABLE & SCORING ---
+
+    function renderUnifiedTable() {
+        const tbody = document.getElementById('unified-body');
+        tbody.innerHTML = '';
+        
+        // Объединяем всех известных игроков (из Scores) и тех, кто ответил сейчас
+        const allPlayers = new Set([...Object.keys(playersScores), ...Object.keys(currentRoundAnswers)]);
+        
+        // Используем сохраненный порядок сортировки или дефолтный (по очкам убывание)
+        // Сортировка происходит только по нажатию Смены Трека, но здесь мы просто рендерим
+        const sortedList = Array.from(allPlayers).sort((a,b) => (playersScores[b]||0) - (playersScores[a]||0));
+
+        sortedList.forEach(login => {
+            const score = playersScores[login] || 0;
+            const roundData = currentRoundAnswers[login];
+            const hasAnswered = !!roundData;
+            
+            let artAns = '', sngAns = '', stageLbl = '';
+            
+            if (hasAnswered) {
+                const parts = roundData.message.split(' | ');
+                artAns = parts[0] || '';
+                sngAns = parts[1] || '';
+                // Превращаем "Player Lvl" в просто "Lvl"
+                // roundData.stage обычно выглядит как "PlayerName 1" или "PlayerName 2"
+                const stParts = roundData.stage.split(' ');
+                stageLbl = stParts.length > 1 ? stParts[1] : '?';
+                if(stageLbl === "FULL") stageLbl = "F";
+            }
+
+            // HTML Generation
+            const tr = document.createElement('tr');
+            if (hasAnswered) tr.classList.add('u-row-answered');
+            if (isAnswerShown) tr.classList.add('revealed');
+            
+            const displayArt = isAnswerShown && hasAnswered ? artAns : (hasAnswered ? '***' : '');
+            const displaySng = isAnswerShown && hasAnswered ? sngAns : (hasAnswered ? '***' : '');
+            
+            let actionsArt = '', actionsSng = '';
+
+            if (isAnswerShown && hasAnswered) {
+                const cfgIndex = (stageLbl === '2') ? 1 : (stageLbl === '3' ? 2 : 0);
+                const cfg = getSettingsRow(cfgIndex);
+                
+                // Расчет потенциальных баллов
+                const pA = parseFloat(cfg.pArt.value);
+                const cA = parseFloat(cfg.cArt.value); // Коэф
+                const pS = parseFloat(cfg.pSong.value);
+                const cS = parseFloat(cfg.cSong.value); // Коэф
+                
+                const valArtFull = pA;
+                const valArtPart = Number((pA * cA).toFixed(1));
+                const valSngFull = pS;
+                const valSngPart = Number((pS * cS).toFixed(1));
+
+                actionsArt = `
+                    <div class="eval-group">
+                        <button class="btn-eval be-yes" onclick="applyScore('${login}', 'art', ${valArtFull})">+${valArtFull}</button>
+                        <button class="btn-eval be-part" onclick="applyScore('${login}', 'art', ${valArtPart})">+${valArtPart}</button>
+                        <button class="btn-eval be-no" onclick="applyScore('${login}', 'art', 0)">0</button>
+                        <button class="btn-eval be-undo" onclick="undoScore('${login}', 'art')">↺</button>
+                    </div>
+                `;
+                
+                actionsSng = `
+                    <div class="eval-group">
+                        <button class="btn-eval be-yes" onclick="applyScore('${login}', 'sng', ${valSngFull})">+${valSngFull}</button>
+                        <button class="btn-eval be-part" onclick="applyScore('${login}', 'sng', ${valSngPart})">+${valSngPart}</button>
+                        <button class="btn-eval be-no" onclick="applyScore('${login}', 'sng', 0)">0</button>
+                        <button class="btn-eval be-undo" onclick="undoScore('${login}', 'sng')">↺</button>
+                    </div>
+                `;
+            }
+
+            tr.innerHTML = `
+                <td><b>${login}</b></td>
+                <td><input type="number" class="score-input-mini" value="${score}" onchange="manualScoreChange('${login}', this.value)"></td>
+                <td>
+                    <span class="ans-text">${displayArt}</span>
+                    ${actionsArt}
+                </td>
+                <td>
+                    <span class="ans-text">${displaySng}</span>
+                    ${actionsSng}
+                </td>
+                <td>${hasAnswered ? `<span class="stage-badge">${stageLbl}</span>` : ''}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function sortPlayers() {
+        // Просто перерисовываем, сортировка внутри renderUnifiedTable
+        // Если нужно физически сохранить порядок для следующего раза, можно сохранить sortedList
+        // Но так как playersScores это объект, порядок ключей не гарантирован.
+        // Поэтому сортировка динамическая при рендере.
+        // Чтобы "зафиксировать" таблицу до конца раунда, мы не вызываем renderUnifiedTable с пересортировкой,
+        // кроме как в changeTrack. Но renderUnifiedTable вызывается часто.
+        // Для задачи: "сортировка меняется не сразу, а при нажатии на след раунд" ->
+        // Нам нужно хранить массив order и обновлять его только в changeTrack.
+        
+        // Реализация сохранения порядка:
+        // Сейчас renderUnifiedTable сортирует всегда. Исправим это.
+    }
+    
+    // Переопределим рендер для учета фиксированного порядка
+    let fixedPlayerOrder = [];
+    
+    // Обновляем fixedPlayerOrder только в changeTrack или при инициализации
+    function updateSortOrder() {
+        const all = new Set([...Object.keys(playersScores), ...Object.keys(currentRoundAnswers)]);
+        fixedPlayerOrder = Array.from(all).sort((a,b) => (playersScores[b]||0) - (playersScores[a]||0));
+    }
+
+    // Переписываем renderUnifiedTable чтобы использовать fixedPlayerOrder
+    const originalRender = renderUnifiedTable;
+    renderUnifiedTable = function() {
+        const tbody = document.getElementById('unified-body');
+        tbody.innerHTML = '';
+        
+        const allCurrent = new Set([...Object.keys(playersScores), ...Object.keys(currentRoundAnswers)]);
+        // Добавляем новых игроков в конец, если их нет в fixed order
+        allCurrent.forEach(p => { if(!fixedPlayerOrder.includes(p)) fixedPlayerOrder.push(p); });
+        
+        fixedPlayerOrder.forEach(login => {
+             // ... (копируем логику генерации TR из старой функции)
+             if (!allCurrent.has(login)) return; // Если игрока удалили
+             
+             const score = playersScores[login] || 0;
+             const roundData = currentRoundAnswers[login];
+             const hasAnswered = !!roundData;
+             
+             let artAns = '', sngAns = '', stageLbl = '';
+            
+            if (hasAnswered) {
+                const parts = roundData.message.split(' | ');
+                artAns = parts[0] || '';
+                sngAns = parts[1] || '';
+                const stParts = roundData.stage.split(' ');
+                stageLbl = stParts.length > 1 ? stParts[1] : '?';
+                if(stageLbl === "FULL") stageLbl = "F";
+            }
+            
+            const tr = document.createElement('tr');
+            if (hasAnswered) tr.classList.add('u-row-answered');
+            if (isAnswerShown) tr.classList.add('revealed');
+            
+            const displayArt = isAnswerShown && hasAnswered ? artAns : (hasAnswered ? '***' : '');
+            const displaySng = isAnswerShown && hasAnswered ? sngAns : (hasAnswered ? '***' : '');
+            
+            let actionsArt = '', actionsSng = '';
+
+            if (isAnswerShown && hasAnswered) {
+                // Определяем уровень
+                let lvlIdx = 0;
+                if(stageLbl === '2') lvlIdx = 1;
+                if(stageLbl === '3') lvlIdx = 2;
+                
+                const cfg = getSettingsRow(lvlIdx);
+                const pA = parseFloat(cfg.pArt.value);
+                const cA = parseFloat(cfg.cArt.value);
+                const pS = parseFloat(cfg.pSong.value);
+                const cS = parseFloat(cfg.cSong.value);
+                
+                const vAF = pA;
+                const vAP = Number((pA * cA).toFixed(1));
+                const vSF = pS;
+                const vSP = Number((pS * cS).toFixed(1));
+
+                actionsArt = `
+                    <div class="eval-group">
+                        <button class="btn-eval be-yes" onclick="applyScore('${login}', 'art', ${vAF})">+${vAF}</button>
+                        <button class="btn-eval be-part" onclick="applyScore('${login}', 'art', ${vAP})">+${vAP}</button>
+                        <button class="btn-eval be-no" onclick="applyScore('${login}', 'art', 0)">0</button>
+                        <button class="btn-eval be-undo" onclick="undoScore('${login}', 'art')">↺</button>
+                    </div>
+                `;
+                actionsSng = `
+                    <div class="eval-group">
+                        <button class="btn-eval be-yes" onclick="applyScore('${login}', 'sng', ${vSF})">+${vSF}</button>
+                        <button class="btn-eval be-part" onclick="applyScore('${login}', 'sng', ${vSP})">+${vSP}</button>
+                        <button class="btn-eval be-no" onclick="applyScore('${login}', 'sng', 0)">0</button>
+                        <button class="btn-eval be-undo" onclick="undoScore('${login}', 'sng')">↺</button>
+                    </div>
+                `;
+            }
+
+            tr.innerHTML = `
+                <td><b>${login}</b></td>
+                <td><input type="number" class="score-input-mini" value="${score}" onchange="manualScoreChange('${login}', this.value)"></td>
+                <td><span class="ans-text">${displayArt}</span>${actionsArt}</td>
+                <td><span class="ans-text">${displaySng}</span>${actionsSng}</td>
+                <td>${hasAnswered ? `<span class="stage-badge">${stageLbl}</span>` : ''}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // История начислений для отмены: { login: { art: val, sng: val } }
+    let scoreHistory = {}; 
+
+    function applyScore(login, type, val) {
+        if (!scoreHistory[login]) scoreHistory[login] = { art: 0, sng: 0 };
+        
+        // Если уже было начислено за этот тип, сначала вычитаем старое (или запрещаем, но лучше просто перезаписать)
+        const oldVal = scoreHistory[login][type];
+        
+        let currentScore = parseFloat(playersScores[login] || 0);
+        currentScore = currentScore - oldVal + val;
+        
+        playersScores[login] = Number(currentScore.toFixed(1));
+        scoreHistory[login][type] = val; // Запоминаем текущее начисление
+        
+        renderUnifiedTable();
+        saveGlobalState();
+    }
+
+    function undoScore(login, type) {
+        if (!scoreHistory[login]) return;
+        const oldVal = scoreHistory[login][type];
+        
+        let currentScore = parseFloat(playersScores[login] || 0);
+        currentScore = currentScore - oldVal;
+        
+        playersScores[login] = Number(currentScore.toFixed(1));
+        scoreHistory[login][type] = 0;
+        
+        renderUnifiedTable();
+        saveGlobalState();
+    }
+
+    function manualScoreChange(login, val) {
+        playersScores[login] = parseFloat(val);
+        saveGlobalState();
+    }
+
+    // --- SUPABASE & DATA ---
+
+    function getSettingsRow(lvl) {
+        const row = document.getElementById(`row-lvl-${lvl}`);
+        return {
+            dur: row.querySelector('.set-dur'),
+            timer: row.querySelector('.set-timer'),
+            pArt: row.querySelector('.set-pArt'),
+            pSong: row.querySelector('.set-pSong'),
+            cArt: row.querySelector('.set-cArt'),
+            cSong: row.querySelector('.set-cSong'),
+            combo: row.querySelector('.set-combo')
+        };
+    }
+
+    function toggleSettings() { 
+        const s = document.getElementById('settings-panel'); 
+        s.style.display = s.style.display==='block'?'none':'block'; 
+        // При закрытии сохраняем настройки
+        if(s.style.display==='none') saveSettingsToSupabase();
+    }
+
+    async function saveSettingsToSupabase() {
+        const settings = {};
+        for(let i=0; i<3; i++) {
+            const cfg = getSettingsRow(i);
+            settings[i] = {
+                dur: cfg.dur.value,
+                timer: cfg.timer.value,
+                pArt: cfg.pArt.value,
+                pSong: cfg.pSong.value,
+                cArt: cfg.cArt.value,
+                cSong: cfg.cSong.value,
+                combo: cfg.combo.value
+            };
+        }
+        await supabaseClient.from('quiz_settings').update({ settings_json: settings }).eq('id', 1);
+    }
+
+    async function loadSettingsFromSupabase() {
+        const { data } = await supabaseClient.from('quiz_settings').select('settings_json').eq('id', 1).single();
+        if (data && data.settings_json && Object.keys(data.settings_json).length > 0) {
+            const s = data.settings_json;
+            for(let i=0; i<3; i++) {
+                if(s[i]) {
+                    const cfg = getSettingsRow(i);
+                    cfg.dur.value = s[i].dur;
+                    cfg.timer.value = s[i].timer;
+                    cfg.pArt.value = s[i].pArt;
+                    cfg.pSong.value = s[i].pSong;
+                    cfg.cArt.value = s[i].cArt;
+                    cfg.cSong.value = s[i].cSong;
+                    cfg.combo.value = s[i].combo;
+                }
+            }
+        }
+    }
+
+    // State Management (F5 Support)
+    async function saveGlobalState() {
+        const state = {
+            playlist,
+            currentIndex,
+            playersScores,
+            currentRoundAnswers,
+            isAnswerShown,
+            fixedPlayerOrder,
+            scoreHistory
+        };
+        await supabaseClient.from('quiz_state').update({ state_json: state }).eq('id', 1);
+    }
+
+    async function restoreGlobalState() {
+        const { data } = await supabaseClient.from('quiz_state').select('state_json').eq('id', 1).single();
+        if (data && data.state_json && data.state_json.playlist && data.state_json.playlist.length > 0) {
+            const s = data.state_json;
+            playlist = s.playlist;
+            currentIndex = s.currentIndex;
+            playersScores = s.playersScores || {};
+            currentRoundAnswers = s.currentRoundAnswers || {};
+            isAnswerShown = s.isAnswerShown || false;
+            fixedPlayerOrder = s.fixedPlayerOrder || [];
+            scoreHistory = s.scoreHistory || {};
+            
+            updateTrackDisplay();
+            updateSortOrder(); // Ensure order exists
+            renderUnifiedTable();
+            if(isAnswerShown) {
+                const row = playlist[currentIndex];
+                document.getElementById('answer-box').innerText = row ? `${row[1]} - ${row[2]}` : "---";
+            }
+        }
+    }
+
+    async function hardReset() {
+        if(confirm("Сбросить всю игру? Это очистит состояние.")) {
+            await supabaseClient.from('quiz_state').update({ state_json: {} }).eq('id', 1);
+            location.reload();
+        }
+    }
+
+    // Data Processing
+    document.getElementById('excel-file').addEventListener('change', e => {
+        const reader = new FileReader();
+        reader.onload = ev => { processData(XLSX.read(ev.target.result, { type: 'binary' })); };
+        reader.readAsBinaryString(e.target.files[0]);
+    });
+
+    async function loadFromGSheets() {
+        const url = document.getElementById('gsheets-url').value;
+        try { const r = await fetch(url); const t = await r.text(); processData(XLSX.read(t, {type:'string'})); } catch(e){alert("Ошибка загрузки");}
+    }
+
+    function processData(wb) {
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, {header:1});
+        // Filtering and mapping
+        playlist = json.filter(r => r[0] && r[0].toString().includes('http'));
+        currentIndex = 0; 
+        playersScores = {};
+        currentRoundAnswers = {};
+        fixedPlayerOrder = [];
+        updateTrackDisplay();
+        saveGlobalState();
+    }
+
+    function extractVideoId(u) { return u.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/)?.[1]; }
+    function updateStatus(t) { document.getElementById('status-display').innerText = t; }
+    function highlightLevelBtn(lvl) {
+        document.querySelectorAll('.btn-main').forEach(b => b.classList.remove('active-lvl'));
+        if (lvl >= 0) document.getElementById(`btn-lvl-${lvl}`).classList.add('active-lvl');
+    }
+    function broadcastTimer(sec, ln) {
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec, lvl: ln } });
+    }
+
+    // --- SUPABASE REALTIME ---
+    const channel = supabaseClient.channel('quiz_chat');
+    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_chat' }, payload => {
+        const d = payload.new;
+        if(d.message === 'SKIP') return; // Skip logic if needed, or handle differently
+
+        // Parse format "Lvl X Login"
+        // Но старый формат был "Stage Login" в player_name?
+        // Проверяем: раньше код делал split(' ') player_name
+        // Предполагаем, что бот шлет: player_name="1 Login" или "Login"
+        // Адаптируем под старую логику:
+        const pParts = d.player_name.split(' ');
+        const lvlTag = pParts[0] + " " + pParts[1]; // "Подсказка 1"
+        const login = pParts.slice(2).join(' '); // "User"
+
+        // Store answer
+        currentRoundAnswers[login] = {
+            message: d.message,
+            stage: lvlTag,
+            id: d.id
+        };
+        
+        // Add to scores if not exists (init 0)
+        if (playersScores[login] === undefined) playersScores[login] = 0;
+        
+        // Reset history for this round if new answer overrides (optional, keeping simple)
+        scoreHistory[login] = { art: 0, sng: 0 }; 
+
+        renderUnifiedTable();
+        checkAllDone();
+        saveGlobalState();
+    }).subscribe();
+
+    function checkAllDone() {
+        // Logic to auto-reveal if everyone answered
+        // Not strictly required by prompt but good to keep
+    }
+
+    // Update sort order on changing track (NEXT ROUND logic)
+    const originalChangeTrack = changeTrack;
+    changeTrack = function(dir) {
+        updateSortOrder(); // Update order based on scores BEFORE resetting round data
+        originalChangeTrack(dir);
+    }
+
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
