@@ -68,18 +68,18 @@
             1 попытка на всю песню.
         </p>
 
-        <input type="text" id="pArtist" placeholder="Исполнитель">
+        <input type="text" id="pArtist" placeholder="Исполнитель / исполнители">
         <input type="text" id="pSong" placeholder="Название песни">
         
         <button id="sendBtn" onclick="send()" disabled>ОТПРАВИТЬ ОТВЕТ</button>
         <button id="skipBtn" class="btn-skip" onclick="skipHint()" disabled>Пропустить подсказку</button>
-        <button id="giveUpBtn" class="btn-skip btn-giveup" onclick="skipSong()" disabled>Сдаться (Пропустить песню)</button>
+        <button id="giveUpBtn" class="btn-skip btn-giveup" onclick="skipSong()" disabled>Пропустить песню целиком</button>
         
         <div id="status" class="status-msg">Ждем начала...</div>
 
         <table class="points-table">
             <thead>
-                <tr><th>#</th> <th>Артист (Часть)</th> <th>Песня (Часть)</th></tr>
+                <tr><th>#</th> <th>Исполнитель (частично)</th> <th>Песня (частично)</th></tr>
             </thead>
             <tbody id="points-body">
                 <tr><td colspan="3" style="color:#555">Данные загружаются...</td></tr>
@@ -134,13 +134,13 @@
         
         hasAnsweredThisSong = true;
         await submit("ANS", `${a} | ${s}`);
-        document.getElementById('status').innerText = "Ответ принят! 👌";
+        document.getElementById('status').innerText = "Ответ принят! Откинься на спинку кресла и жди следующую песню 😎";
     }
 
     async function skipHint() {
         if (hasAnsweredThisSong) return;
         await submit("SKIP", "SKIP"); // Just skip this hint
-        document.getElementById('status').innerText = "Этап пропущен. Ждем следующий...";
+        document.getElementById('status').innerText = "🏳️ Ждем следующую подсказку 😎";
         toggleInputs(false); // Disable until next hint
     }
 
@@ -149,7 +149,7 @@
         if(confirm("Сдаться на этой песне? (0 баллов)")) {
             hasAnsweredThisSong = true;
             await submit("SKIP_SONG", "SKIP_SONG");
-            document.getElementById('status').innerText = "Песня пропущена 🏳️";
+            document.getElementById('status').innerText = "🏳️ Откинься на спинку кресла и жди следующую песню 😎";
             toggleInputs(false);
         }
     }
