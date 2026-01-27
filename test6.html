@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Quiz Admin Elite</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { 
+            --bg: #0a0a0b; --card: #151518; --accent: #00e5ff; 
+            --gold: #ffc107; --danger: #ff3d00; --text: #e0e0e0;
+            --row-ans: #1a1a2e; --row-skip: #2d2d2d;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
+            background: var(--bg); color: var(--text); 
+            margin: 0; display: flex; flex-direction: column; height: 100vh; 
+        }
+
+        /* --- UI ELEMENTS --- */
+        .top-bar { 
+            height: 60px; background: var(--card); border-bottom: 1px solid #333; 
+            display: flex; align-items: center; padding: 0 20px; gap: 10px;
+        }
+        .header-info { 
+            height: 120px; background: linear-gradient(180deg, #151518 0%, #0a0a0b 100%);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 50px;
+        }
+        
+        .btn {
+            background: #222; border: 1px solid #444; color: #fff; 
+            padding: 8px 15px; cursor: pointer; border-radius: 4px; font-size: 12px;
+            transition: 0.2s;
+        }
+        .btn:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-main { background: var(--accent); color: #000; font-weight: bold; border: none; }
+        .btn-danger { border-color: var(--danger); color: var(--danger); }
+
+        /* --- TIMER --- */
+        .timer-container { position: relative; width: 80px; height: 80px; }
+        .timer-svg { transform: rotate(-90deg); width: 80px; height: 80px; }
+        .timer-circle { 
+            fill: none; stroke: var(--accent); stroke-width: 4; 
+            stroke-dasharray: 238; stroke-dashoffset: 0; transition: 1s linear; 
+        }
+        .timer-val { 
+            position: absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+            font-size: 24px; font-weight: bold; font-family: monospace;
+        }
+
+        /* --- MAIN LAYOUT --- */
+        .content { display: flex; flex: 1; overflow: hidden; }
+        
+        /* Секция управления */
+        .sidebar { width: 320px; background: #0f0f11; border-right: 1px solid #222; padding: 20px; }
+        .play-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .btn-play { 
+            height: 80px; display: flex; flex-direction: column; align-items: center; 
+            justify-content: center; background: #1a1a1c; border: 1px solid #333; color: #888;
+        }
+        .btn-play.active { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 15px rgba(0,229,255,0.2); }
+
+        /* Таблица (MODERN STYLE) */
+        .table-area { flex: 1; overflow-y: auto; padding: 20px; }
+        .q-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .q-table th { color: #666; font-size: 12px; text-transform: uppercase; padding: 10px; text-align: left; }
+        .q-table tr { background: var(--card); transition: 0.3s; }
+        .q-table td { padding: 15px 10px; border-top: 1px solid #222; border-bottom: 1px solid #222; }
+        .q-table td:first-child { border-left: 1px solid #222; border-radius: 8px 0 0 8px; }
+        .q-table td:last-child { border-right: 1px solid #222; border-radius: 0 8px 8px 0; }
+
+        /* Состояние строк */
+        .row-answered { background: #16202a !important; }
+        .row-skipped { opacity: 0.6; }
+
+        /* Камуфляж ответов */
+        .secret-box { 
+            background: #333; color: #333; border-radius: 4px; 
+            padding: 2px 8px; user-select: none; display: inline-block; min-width: 100px;
+        }
+        .revealed-box { background: transparent; color: var(--accent); }
+
+        /* Очки */
+        .score-badge { 
+            background: #000; color: var(--gold); border: 1px solid var(--gold);
+            padding: 5px 10px; border-radius: 4px; font-weight: bold; width: 60px; text-align: center;
+        }
+
+        .btn-eval { 
+            width: 35px; height: 25px; border: none; border-radius: 3px; 
+            font-size: 10px; font-weight: bold; cursor: pointer; margin-right: 2px;
+        }
+        .ev-yes { background: #2e7d32; color: #fff; }
+        .ev-part { background: #fbc02d; color: #000; }
+        .ev-reset { background: #444; color: #fff; }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <button class="btn" onclick="document.getElementById('xl').click()">Excel</button>
+    <input type="file" id="xl" hidden>
+    <button class="btn" onclick="toggleSettings()">Настройки</button>
+    <button class="btn" onclick="sortPlayers()">⚡ СОРТИРОВАТЬ ТАБЛИЦУ</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-danger" onclick="resetGame()">RESET SYSTEM</button>
+</div>
+
+<div class="header-info">
+    <div>
+        <div style="color:#666; font-size:12px">ТЕКУЩИЙ ТРЕК</div>
+        <div id="track-info" style="font-size:24px; font-weight:300">0 / 0</div>
+    </div>
+    <div id="status-text" style="font-size:32px; font-weight:bold; color:var(--accent)">READY</div>
+    <div class="timer-container">
+        <svg class="timer-svg"><circle id="timer-circle" class="timer-circle" cx="40" cy="40" r="38"></circle></svg>
+        <div id="timer-val" class="timer-val">00</div>
+    </div>
+</div>
+
+<div class="content">
+    <div class="sidebar">
+        <div class="play-grid">
+            <button id="p0" class="btn-play" onclick="startLevel(0)"><span>HINT 1</span><b>4 pts</b></button>
+            <button id="p1" class="btn-play" onclick="startLevel(1)"><span>HINT 2</span><b>2 pts</b></button>
+            <button id="p2" class="btn-play" onclick="startLevel(2)"><span>HINT 3</span><b>1 pts</b></button>
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:20px;">
+            <button class="btn" style="flex:1" onclick="changeTrack(-1)">PREV</button>
+            <button class="btn btn-main" style="flex:2" onclick="revealAnswers()">REVEAL ANSWER</button>
+            <button class="btn" style="flex:1" onclick="changeTrack(1)">NEXT</button>
+        </div>
+        <div id="settings-pane" style="display:none; background:#1a1a1c; padding:15px; border-radius:8px; border:1px solid #333;">
+            <h4 style="margin:0 0 10px 0">Settings</h4>
+            <button class="btn btn-danger" onclick="factoryResetSettings()">Reset to Default</button>
+        </div>
+    </div>
+
+    <div class="table-area">
+        <table class="q-table">
+            <thead>
+                <tr>
+                    <th>Игрок</th>
+                    <th>Всего</th>
+                    <th>Исполнитель</th>
+                    <th>Песня</th>
+                    <th style="text-align:center">Этап</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="p-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="yt-api" style="display:none"><div id="player"></div></div>
+
+<script>
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabase = window.supabase.createClient(S_URL, S_KEY);
+
+    let playlist = [], currentIndex = 0;
+    let players = {}; 
+    let activeLevel = -1;
+    let currentPhase = 'IDLE'; 
+    let timerId;
+    let ytPlayer;
+
+    const DEFAULTS = [
+        { dur: 1.5, timer: 20, pArt: 4, pSong: 4, kArt: 0.5, kSong: 0.5, combo: 2 },
+        { dur: 5.0, timer: 25, pArt: 2, pSong: 2, kArt: 0.5, kSong: 0.5, combo: 1 },
+        { dur: 12.0, timer: 30, pArt: 1, pSong: 1, kArt: 0.5, kSong: 0.5, combo: 0.5 }
+    ];
+    let config = { levels: JSON.parse(JSON.stringify(DEFAULTS)) };
+
+    // --- CORE ---
+    async function init() {
+        await loadConfig();
+        await restoreState();
+        renderTable();
+    }
+
+    function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('player', {
+            events: { 'onStateChange': (e) => {
+                if(e.data == 1 && currentPhase == 'LOADING') {
+                    currentPhase = 'PLAYING';
+                    let cfg = config.levels[activeLevel];
+                    runTimer(cfg.dur + cfg.timer);
+                    setTimeout(() => ytPlayer.pauseVideo(), cfg.dur * 1000);
+                }
+            }}
+        });
+    }
+
+    async function startLevel(lvl) {
+        if(!playlist[currentIndex]) return;
+        clearInterval(timerId);
+        activeLevel = lvl;
+        currentPhase = 'LOADING';
+        
+        document.querySelectorAll('.btn-play').forEach(b => b.classList.remove('active'));
+        document.getElementById('p'+lvl).classList.add('active');
+
+        const vid = extractId(playlist[currentIndex][0]);
+        const start = playlist[currentIndex][3 + lvl] || 0;
+        ytPlayer.loadVideoById({ videoId: vid, startSeconds: start });
+    }
+
+    function runTimer(sec) {
+        let left = sec;
+        const total = sec;
+        timerId = setInterval(() => {
+            left--;
+            updateTimerUI(left, total);
+            if(left <= 0) {
+                clearInterval(timerId);
+                autoNextStep();
+            }
+        }, 1000);
+    }
+
+    function updateTimerUI(val, total) {
+        document.getElementById('timer-val').innerText = val;
+        const offset = 238 - (val / total) * 238;
+        document.getElementById('timer-circle').style.strokeDashoffset = offset;
+    }
+
+    function autoNextStep() {
+        // Проверяем, ответили ли все
+        const pList = Object.values(players);
+        const allDone = pList.every(p => p.roundData.stage !== null || p.roundData.isSkipped);
+
+        if(allDone) {
+            clearInterval(timerId);
+            if(activeLevel < 2) startLevel(activeLevel + 1);
+            else revealAnswers();
+        }
+    }
+
+    function revealAnswers() {
+        clearInterval(timerId);
+        currentPhase = 'REVEALED';
+        const row = playlist[currentIndex];
+        document.getElementById('status-text').innerText = `${row[1]} - ${row[2]}`;
+        renderTable();
+    }
+
+    async function changeTrack(dir) {
+        // Перед сменой фиксируем баллы
+        Object.keys(players).forEach(k => {
+            const p = players[k];
+            const rd = p.roundData;
+            let roundPts = (rd.artScore || 0) + (rd.songScore || 0);
+            if(rd.artScore > 0 && rd.songScore > 0) roundPts += config.levels[rd.stage || 0].combo;
+            p.totalScore = Number((p.totalScore + roundPts).toFixed(1));
+            p.roundData = { artAns: null, songAns: null, stage: null, isSkipped: false, artScore: 0, songScore: 0 };
+        });
+
+        currentIndex += dir;
+        activeLevel = -1;
+        currentPhase = 'IDLE';
+        document.getElementById('status-text').innerText = "READY";
+        
+        // Очистка чата в Supabase (Исправленный 400 Error)
+        await supabase.from('quiz_chat').delete().filter('id', 'neq', '00000000-00-00-00-00-000000000000');
+
+        sortPlayers(); // При смене трека сортировка всегда срабатывает
+        saveState();
+    }
+
+    // --- TABLE & SCORING ---
+    function renderTable() {
+        const tbody = document.getElementById('p-body');
+        tbody.innerHTML = '';
+
+        Object.keys(players).forEach(login => {
+            const p = players[login];
+            const rd = p.roundData;
+            const tr = document.createElement('tr');
+            if(rd.stage !== null) tr.className = 'row-answered';
+            if(rd.isSkipped) tr.className = 'row-skipped';
+
+            const isRev = currentPhase === 'REVEALED';
+            const cfg = config.levels[rd.stage || 0];
+
+            tr.innerHTML = `
+                <td><b>${login}</b></td>
+                <td><div class="score-badge">${p.totalScore}</div></td>
+                <td>${renderAnsCell(login, 'art', rd.artAns, isRev, cfg)}</td>
+                <td>${renderAnsCell(login, 'song', rd.songAns, isRev, cfg)}</td>
+                <td style="text-align:center">${rd.stage !== null ? (rd.stage+1) : '-'}</td>
+                <td><button onclick="delPlayer('${login}')" style="color:red; background:none; border:none; cursor:pointer">×</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderAnsCell(login, type, val, isRev, cfg) {
+        if(!val && !players[login].roundData.isSkipped) return '<span style="color:#333">—</span>';
+        const displayVal = players[login].roundData.isSkipped ? 'SKIP' : val;
+        
+        let html = `<div class="${isRev ? 'revealed-box' : 'secret-box'}">${displayVal}</div>`;
+        
+        if(isRev && !players[login].roundData.isSkipped) {
+            const scoreKey = type === 'art' ? 'artScore' : 'songScore';
+            const max = type === 'art' ? cfg.pArt : cfg.pSong;
+            const part = Number((max * (type === 'art' ? cfg.kArt : cfg.kSong)).toFixed(1));
+            
+            html += `<div style="margin-top:5px">
+                <button class="btn-eval ev-yes" onclick="setPts('${login}','${scoreKey}',${max})">${max}</button>
+                <button class="btn-eval ev-part" onclick="setPts('${login}','${scoreKey}',${part})">${part}</button>
+                <button class="btn-eval ev-reset" onclick="setPts('${login}','${scoreKey}',0)">0</button>
+            </div>`;
+        }
+        return html;
+    }
+
+    function setPts(login, key, val) {
+        players[login].roundData[key] = val;
+        renderTable();
+        saveState();
+    }
+
+    function sortPlayers() {
+        const sorted = Object.entries(players).sort((a,b) => b[1].totalScore - a[1].totalScore);
+        const newPlayers = {};
+        sorted.forEach(ent => newPlayers[ent[0]] = ent[1]);
+        players = newPlayers;
+        renderTable();
+    }
+
+    // --- SUPABASE REALTIME ---
+    supabase.channel('quiz_chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_chat' }, payload => {
+        const msg = payload.new;
+        const login = msg.player_name;
+        
+        if(!players[login]) players[login] = { totalScore: 0, roundData: { artAns: null, songAns: null, stage: null, isSkipped: false, artScore: 0, songScore: 0 }};
+        
+        if(msg.message === "SKIP") {
+            players[login].roundData.isSkipped = true;
+        } else {
+            const [a, s] = msg.message.split(' | ');
+            players[login].roundData.artAns = a;
+            players[login].roundData.songAns = s;
+            players[login].roundData.stage = activeLevel;
+        }
+        renderTable();
+        autoNextStep(); 
+    }).subscribe();
+
+    // --- HELPERS ---
+    function extractId(url) { return url ? url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/)?.[1] : ''; }
+
+    async function saveState() {
+        await supabase.from('quiz_state').upsert({ id: 1, playlist, current_index: currentIndex, scores: players });
+    }
+
+    async function restoreState() {
+        const { data } = await supabase.from('quiz_state').select('*').eq('id', 1).single();
+        if(data) {
+            playlist = data.playlist || [];
+            currentIndex = data.current_index || 0;
+            players = data.scores || {};
+            document.getElementById('track-info').innerText = `${currentIndex+1} / ${playlist.length}`;
+        }
+    }
+
+    async function loadConfig() {
+        const { data } = await supabase.from('quiz_settings').select('json_data').eq('id', 1).single();
+        if(data) config = data.json_data;
+    }
+
+    document.getElementById('xl').addEventListener('change', e => {
+        const reader = new FileReader();
+        reader.onload = (ae) => {
+            const wb = XLSX.read(ae.target.result, {type:'binary'});
+            playlist = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1}).filter(r => r[0] && r[0].toString().includes('http'));
+            currentIndex = 0;
+            saveState();
+            location.reload();
+        };
+        reader.readAsBinaryString(e.target.files[0]);
+    });
+
+    init();
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
