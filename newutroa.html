@@ -683,7 +683,7 @@
                 
                 return `
                 <div class="eval-actions">
-                    <button class="btn-eval be-yes ${isFull?'selected':''}" onclick="setScore('${login}', '${type}', ${maxPts})">${Number((maxPts).toFixed(2))}</button>
+                    <button class="btn-eval be-yes ${isFull?'selected':''}" onclick="setScore('${login}', '${type}', ${maxPts})">${Number(maxPts.toFixed(2))}</button>
                     <button class="btn-eval be-part ${isPart?'selected':''}" onclick="setScore('${login}', '${type}', ${(maxPts*kPts).toFixed(2)})">${Number((maxPts*kPts).toFixed(2))}</button>
                     <button class="btn-eval be-undo" onclick="setScore('${login}', '${type}', 0)">СБРОС</button>
                 </div>`;
@@ -763,8 +763,8 @@
             tbody.innerHTML += `
                 <tr>
                     <td align=center>${i+1}</td>
-                    <td align=center style="color:var(--gold)">${lvl.pArt} <span style="color:#777">(${Number((artPart).toFixed(2))})</span></td>
-                    <td align=center style="color:var(--gold)">${lvl.pSong} <span style="color:#777">(${Number((songPart).toFixed(2))})</span></td>
+                    <td align=center style="color:var(--gold)">${lvl.pArt} <span style="color:#777">(${Number(artPart.toFixed(2))})</span></td>
+                    <td align=center style="color:var(--gold)">${lvl.pSong} <span style="color:#777">(${Number(songPart.toFixed(2))})</span></td>
                 </tr>
             `;
         });
