@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Admin PRO v2.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --accent: #0078d4; --bg: #121212; --panel: #1e1e1e; --border: #333; --success: #2e7d32; --danger: #c62828; --gold: #D4AF37; }
+        body { font-family: 'Roboto', sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* Слой 1: Управление */
+        .top-bar { display: flex; gap: 10px; padding: 10px; background: #000; border-bottom: 1px solid var(--border); align-items: center; font-size: 13px; }
+        .btn-tool { background: transparent; border: 1px solid #555; color: #ccc; padding: 5px 12px; cursor: pointer; }
+        .btn-tool:hover { border-color: var(--accent); color: white; }
+        .btn-pause { background: var(--danger); color: white; font-weight: bold; border: none; padding: 5px 15px; }
+        .btn-pause.paused { background: #ffeb3b; color: #000; }
+
+        /* Слой 2: Инфо */
+        .info-bar { text-align: center; padding: 20px; border-bottom: 1px solid var(--border); }
+        #track-counter { font-size: 24px; color: var(--gold); }
+        #status-display { font-size: 18px; margin: 5px 0; letter-spacing: 1px; color: #aaa; }
+        #timer-display { font-size: 80px; font-family: monospace; color: var(--accent); line-height: 1; }
+
+        /* Основной контент */
+        .main-layout { display: flex; flex: 1; overflow: hidden; }
+        
+        /* Левый блок управления */
+        .controls-left { width: 300px; padding: 20px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 20px; }
+        .btn-main { width: 100%; padding: 15px; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; color: white; }
+        .btn-lvl-0 { background: var(--gold); } .btn-lvl-1 { background: #B0B0B0; } .btn-lvl-2 { background: #A0522D; }
+        .active-lvl { outline: 4px solid white; animation: pulse 1.5s infinite; }
+        
+        /* Таблица */
+        .table-container { flex: 1; overflow-y: auto; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; background: var(--panel); }
+        th { background: #000; padding: 12px; text-align: left; font-size: 12px; color: #888; }
+        td { padding: 10px; border-bottom: 1px solid var(--border); }
+        .row-answered { background: rgba(27, 120, 227, 0.2); }
+        .row-skipped { opacity: 0.5; }
+        
+        .eval-btns button { padding: 4px 8px; font-size: 11px; cursor: pointer; margin-right: 2px; border: none; border-radius: 2px; color: white; }
+        .score-input { width: 50px; background: #000; border: 1px solid #444; color: #fff; text-align: center; }
+
+        #settings-panel { position: fixed; top: 50px; right: 10px; background: #222; border: 1px solid var(--accent); padding: 15px; z-index: 1000; display: none; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); } 70% { box-shadow: 0 0 0 10px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+        
+        #login-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div style="text-align:center">
+        <input type="password" id="admin-password" placeholder="Пароль" style="padding:10px">
+        <button onclick="login()" style="padding:10px">ВХОД</button>
+    </div>
+</div>
+
+<div class="top-bar">
+    <input type="file" id="excel-file" hidden accept=".xlsx, .xls">
+    <button class="btn-tool" onclick="document.getElementById('excel-file').click()">ФАЙЛ</button>
+    <button class="btn-tool" onclick="loadFromGSheets()">URL</button>
+    <input type="text" id="gsheets-url" placeholder="CSV Link" style="background:#000; color:white; border:1px solid #444; width:120px">
+    <button class="btn-tool" onclick="toggleSettings()">НАСТРОЙКИ</button>
+    <button class="btn-pause" id="btn-pause" onclick="togglePause()">ПАУЗА</button>
+    <button class="btn-tool" onclick="location.reload()" style="border-color:var(--danger)">RESET</button>
+</div>
+
+<div class="info-bar">
+    <div id="track-counter">Песня 0/0</div>
+    <div id="status-display">ОЖИДАНИЕ НАЧАЛА РАУНДА</div>
+    <div id="timer-display">00</div>
+</div>
+
+<div class="main-layout">
+    <div class="controls-left">
+        <button id="btn-lvl-0" class="btn-main btn-lvl-0" onclick="manualStart(0)">PLAY 1</button>
+        <button id="btn-lvl-1" class="btn-main btn-lvl-1" onclick="manualStart(1)">PLAY 2</button>
+        <button id="btn-lvl-2" class="btn-main btn-lvl-2" onclick="manualStart(2)">PLAY 3</button>
+        <hr style="width:100%; border:0; border-top:1px solid #333">
+        <button class="btn-tool" onclick="changeTrack(-1)">ПРЕДЫДУЩАЯ</button>
+        <button class="btn-tool" style="color:var(--accent)" onclick="revealAnswer()">ОТВЕТ</button>
+        <button class="btn-tool" onclick="changeTrack(1)">СЛЕДУЮЩАЯ (СОРТИРОВКА)</button>
+    </div>
+
+    <div class="table-container">
+        <table id="game-table">
+            <thead>
+                <tr>
+                    <th>Игрок</th>
+                    <th>Очки</th>
+                    <th>Исполнитель</th>
+                    <th>Песня</th>
+                    <th>Этап</th>
+                    <th>Действие</th>
+                </tr>
+            </thead>
+            <tbody id="players-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="settings-panel">
+    <h4>Настройки очков</h4>
+    <table style="font-size:11px">
+        <tr><th>Этап</th><th>Таймер</th><th>Балл Исп.</th><th>Балл Пес.</th><th>Коэф Исп.</th><th>Коэф Пес.</th></tr>
+        <tbody id="settings-body">
+            </tbody>
+    </table>
+    <button onclick="saveSettings()" style="margin-top:10px; width:100%">Сохранить в DB</button>
+</div>
+
+<div id="yt-placeholder" style="display:none"><div id="yt-player"></div></div>
+
+<script>
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    let playlist = [], currentIndex = 0, ytPlayer;
+    let timerId, playTimeout;
+    let isPaused = false, activeLevel = -1, currentPhase = 'IDLE';
+    let players = {}; // { login: { score, msgArtist, msgSong, level, status } }
+    let gameConfig = [
+        { timer: 20, pArt: 4, pSong: 4, kArt: 0.5, kSong: 0.5 },
+        { timer: 25, pArt: 2, pSong: 2, kArt: 0.5, kSong: 0.5 },
+        { timer: 30, pArt: 1, pSong: 1, kArt: 0.5, kSong: 0.5 }
+    ];
+
+    async function login() {
+        const pass = document.getElementById('admin-password').value;
+        const { data } = await supabaseClient.from('quiz_users').select('password').eq('username', 'admin').single();
+        if (data?.password === pass) {
+            document.getElementById('login-screen').style.display = 'none';
+            sessionStorage.setItem('quiz_authorized', 'true');
+            initGame();
+        }
+    }
+
+    async function initGame() {
+        if (sessionStorage.getItem('quiz_authorized') !== 'true') return;
+        document.getElementById('login-screen').style.display = 'none';
+        
+        // Загрузка настроек
+        const { data: cfg } = await supabaseClient.from('quiz_settings').select('*').order('id');
+        if (cfg && cfg.length === 3) {
+            gameConfig = cfg.map(c => ({ timer: c.timer, pArt: c.p_art, pSong: c.p_song, kArt: c.k_art, kSong: c.k_song }));
+        }
+        renderSettings();
+        
+        // Восстановление состояния
+        const savedIndex = localStorage.getItem('quiz_current_index');
+        if (savedIndex) currentIndex = parseInt(savedIndex);
+
+        // Канал Supabase
+        const channel = supabaseClient.channel('quiz_chat');
+        channel
+        .on('presence', { event: 'sync' }, () => {
+            const state = channel.presenceState();
+            for (const id in state) {
+                state[id].forEach(p => {
+                    if (!players[p.user]) {
+                        players[p.user] = { score: 0, status: 'online', lastSeen: Date.now() };
+                        renderTable();
+                    }
+                });
+            }
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_chat' }, payload => {
+            handleIncomingMessage(payload.new);
+        })
+        .subscribe();
+    }
+
+    function handleIncomingMessage(data) {
+        const parts = data.player_name.split(' ');
+        const levelTag = parts[0] + " " + parts[1]; // "Подсказка X"
+        const login = parts.slice(2).join(' ');
+        const lvlIdx = parseInt(parts[1]) - 1;
+
+        if (!players[login]) players[login] = { score: 0 };
+        players[login].lastSeen = Date.now();
+
+        if (data.message === "SKIP") {
+            players[login].status = 'skipped';
+        } else {
+            const [mArt, mSng] = data.message.split(' | ');
+            players[login].msgArtist = mArt;
+            players[login].msgSong = mSng;
+            players[login].level = lvlIdx;
+            players[login].status = 'answered';
+        }
+        renderTable();
+        checkAutoProgress();
+    }
+
+    function manualStart(lvl) {
+        if (isPaused) togglePause();
+        startLevel(lvl);
+    }
+
+    async function startLevel(lvl) {
+        if (!playlist[currentIndex]) return;
+        stopLogic();
+        activeLevel = lvl;
+        currentPhase = 'PRELOAD';
+        updateStatus("ЗАГРУЗКА...");
+        highlightBtn(lvl);
+
+        const row = playlist[currentIndex];
+        const vid = extractVideoId(row[0]);
+        const startSec = row[3 + lvl] || 0;
+
+        await supabaseClient.channel('quiz_chat').send({
+            type: 'broadcast', event: 'sync_state',
+            payload: { songNum: currentIndex + 1, level: `Подсказка ${lvl+1}`, points: gameConfig[lvl] }
+        });
+
+        ytPlayer.loadVideoById({ videoId: vid, startSeconds: parseFloat(startSec) });
+    }
+
+    function onPlayerStateChange(e) {
+        if (e.data == YT.PlayerState.PLAYING && currentPhase === 'PRELOAD') {
+            currentPhase = 'PLAYING';
+            updateStatus("ОЖИДАНИЕ ОТВЕТОВ");
+            const dur = 1.5; // Базовая длительность или из настроек
+            startCountdown(gameConfig[activeLevel].timer);
+            
+            clearTimeout(playTimeout);
+            playTimeout = setTimeout(() => {
+                ytPlayer.pauseVideo();
+            }, 5000); // Пример: 5 сек звук
+        }
+    }
+
+    function startCountdown(sec) {
+        clearInterval(timerId);
+        let left = sec;
+        document.getElementById('timer-display').innerText = left;
+        broadcastTimer(left, `Подсказка ${activeLevel+1}`);
+
+        timerId = setInterval(() => {
+            if (isPaused) return;
+            left--;
+            document.getElementById('timer-display').innerText = left < 10 ? '0'+left : left;
+            if (left <= 0) {
+                clearInterval(timerId);
+                if (activeLevel < 2) startLevel(activeLevel + 1);
+                else revealAnswer();
+            }
+        }, 1000);
+    }
+
+    function checkAutoProgress() {
+        const activePlayers = Object.values(players).filter(p => p.status !== 'removed');
+        const countAnswered = activePlayers.filter(p => p.status === 'answered').length;
+        const countSkipped = activePlayers.filter(p => p.status === 'skipped').length;
+
+        if (countAnswered === activePlayers.length) {
+            // Все ответили - сразу финал
+            stopLogic();
+            revealAnswer();
+        } else if (countAnswered + countSkipped === activePlayers.length) {
+            // Кто-то скипнул, кто-то ответил - к следующей подсказке
+            stopLogic();
+            if (activeLevel < 2) startLevel(activeLevel + 1);
+            else revealAnswer();
+        }
+    }
+
+    function revealAnswer() {
+        activeLevel = -1;
+        highlightBtn(-1);
+        const row = playlist[currentIndex];
+        updateStatus(`${row[1]} — ${row[2]}`);
+        document.querySelectorAll('.eval-panel').forEach(p => p.style.display = 'block');
+    }
+
+    function calcScore(login, mArt, mSng) {
+        const p = players[login];
+        const cfg = gameConfig[p.level];
+        let gain = 0;
+        
+        gain += (mArt === 1) ? cfg.pArt : (mArt === 0.5 ? cfg.pArt * cfg.kArt : 0);
+        gain += (mSng === 1) ? cfg.pSong : (mSng === 0.5 ? cfg.pSong * cfg.kSong : 0);
+        
+        p.score = Number((p.score + gain).toFixed(1));
+        p.status = 'reviewed';
+        renderTable();
+    }
+
+    function renderTable() {
+        const body = document.getElementById('players-body');
+        body.innerHTML = '';
+        
+        Object.entries(players).forEach(([login, p]) => {
+            if (p.status === 'removed') return;
+            const isAns = p.status === 'answered' || p.status === 'reviewed';
+            const row = document.createElement('tr');
+            if (isAns) row.className = 'row-answered';
+            if (p.status === 'skipped') row.className = 'row-skipped';
+
+            row.innerHTML = `
+                <td><b>${login}</b></td>
+                <td><input type="number" class="score-input" value="${p.score}" onchange="players['${login}'].score=Number(this.value)"></td>
+                <td>${p.msgArtist || '-'}</td>
+                <td>${p.msgSong || '-'}</td>
+                <td>${p.level !== undefined ? p.level + 1 : '-'}</td>
+                <td>
+                    <div class="eval-panel" style="display:${activeLevel === -1 && isAns ? 'block' : 'none'}">
+                        <div class="eval-btns">
+                            <button class="btn-lvl-0" onclick="calcScore('${login}',1,1)">ДА</button>
+                            <button class="btn-lvl-1" onclick="calcScore('${login}',0.5,0.5)">1/2</button>
+                            <button class="btn-lvl-2" onclick="calcScore('${login}',0,0)">НЕТ</button>
+                            <button onclick="undoScore('${login}')" style="background:#555">↩</button>
+                            <button onclick="removePlayer('${login}')" style="background:none; color:red">×</button>
+                        </div>
+                    </div>
+                </td>
+            `;
+            body.appendChild(row);
+        });
+    }
+
+    function changeTrack(dir) {
+        currentIndex += dir;
+        if (currentIndex < 0) currentIndex = 0;
+        localStorage.setItem('quiz_current_index', currentIndex);
+        
+        // Сортировка только при смене трека
+        const sorted = Object.entries(players).sort((a,b) => b[1].score - a[1].score);
+        const newPlayers = {};
+        sorted.forEach(([k,v]) => {
+            // Сброс статусов для нового раунда
+            v.status = 'online';
+            v.msgArtist = ''; v.msgSong = ''; v.level = undefined;
+            newPlayers[k] = v;
+        });
+        players = newPlayers;
+        
+        stopLogic();
+        updateStatus("ОЖИДАНИЕ НАЧАЛА РАУНДА");
+        document.getElementById('track-counter').innerText = `Песня ${currentIndex+1}/${playlist.length}`;
+        renderTable();
+    }
+
+    function stopLogic() {
+        clearInterval(timerId);
+        clearTimeout(playTimeout);
+        if (ytPlayer) ytPlayer.pauseVideo();
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('btn-pause');
+        btn.classList.toggle('paused', isPaused);
+        
+        if (ytPlayer) {
+            // Если пауза снята и мы в фазе игры - продолжаем
+            if (!isPaused && currentPhase === 'PLAYING') ytPlayer.playVideo();
+            else ytPlayer.pauseVideo();
+        }
+    }
+
+    function renderSettings() {
+        const b = document.getElementById('settings-body');
+        b.innerHTML = gameConfig.map((c, i) => `
+            <tr>
+                <td>${i+1}</td>
+                <td><input type="number" value="${c.timer}" onchange="gameConfig[${i}].timer=parseInt(this.value)"></td>
+                <td><input type="number" value="${c.pArt}" onchange="gameConfig[${i}].pArt=parseInt(this.value)"></td>
+                <td><input type="number" value="${c.pSong}" onchange="gameConfig[${i}].pSong=parseInt(this.value)"></td>
+                <td><input type="number" step="0.1" value="${c.kArt}" onchange="gameConfig[${i}].kArt=parseFloat(this.value)"></td>
+                <td><input type="number" step="0.1" value="${c.kSong}" onchange="gameConfig[${i}].kSong=parseFloat(this.value)"></td>
+            </tr>
+        `).join('');
+    }
+
+    async function saveSettings() {
+        // Логика сохранения в Supabase
+        alert("Настройки сохранены локально. Для БД требуется таблица quiz_settings.");
+    }
+
+    function extractVideoId(url) {
+        if (!url) return '';
+        const match = url.toString().match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
+        return match ? match[1] : '';
+    }
+
+    function updateStatus(txt) { document.getElementById('status-display').innerText = txt; }
+    function highlightBtn(lvl) {
+        document.querySelectorAll('.btn-main').forEach(b => b.classList.remove('active-lvl'));
+        if (lvl >= 0) document.getElementById(`btn-lvl-${lvl}`).classList.add('active-lvl');
+    }
+    function broadcastTimer(sec, lvl) {
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec, lvl } });
+    }
+
+    // Excel Parser
+    document.getElementById('excel-file').addEventListener('change', e => {
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const wb = XLSX.read(ev.target.result, { type: 'binary' });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            playlist = XLSX.utils.sheet_to_json(sheet, {header:1})
+                .filter(r => r[0] && r[0].toString().includes('http'));
+            document.getElementById('track-counter').innerText = `Песня 1/${playlist.length}`;
+        };
+        reader.readAsBinaryString(e.target.files[0]);
+    });
+
+    function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('yt-player', {
+            height: '0', width: '0',
+            events: { 'onStateChange': onPlayerStateChange }
+        });
+    }
+
+    function removePlayer(login) {
+        if(confirm(`Удалить ${login}?`)) { players[login].status = 'removed'; renderTable(); }
+    }
+    
+    function undoScore(login) {
+        players[login].status = 'answered';
+        renderTable();
+    }
+
+    // Авто-удаление через 5 минут
+    setInterval(() => {
+        if (isPaused) return;
+        const now = Date.now();
+        Object.keys(players).forEach(login => {
+            if (now - players[login].lastSeen > 300000) players[login].status = 'removed';
+        });
+        renderTable();
+    }, 30000);
+
+    function toggleSettings() {
+        const p = document.getElementById('settings-panel');
+        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+    }
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
