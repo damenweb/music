@@ -223,7 +223,7 @@
         document.getElementById('pause-overlay').style.display = p.payload.paused ? 'flex' : 'none';
     
     }).on('broadcast', { event: 'reveal_answer' }, p => {
-        document.getElementById('status').innerHTML = `Ответ:<br><span style="color:white">${p.payload.answer}</span>`;
+        document.getElementById('status').innerHTML = `Ответ: <br><span style="color:white">${p.payload.answer}</span>`;
         document.getElementById('lvl-badge').innerText = "ОТВЕТ";
         toggleInputs(false);
         
