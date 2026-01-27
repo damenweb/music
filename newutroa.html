@@ -503,7 +503,7 @@
                     roundTotal += cfg.combo;
                 }
             }
-            p.totalScore = Number((p.totalScore + roundTotal).toFixed(1));
+            p.totalScore = Number((p.totalScore + roundTotal).toFixed(2));
             
             // Reset round data
             p.roundData = { artAns: null, songAns: null, stage: null, status: 'WAIT', artScore: 0, songScore: 0 };
@@ -672,19 +672,19 @@
             if (rd.status === 'ANS' && as > 0 && ss > 0) comboBonus = cfg.combo;
             
             const currentRoundTotal = as + ss + comboBonus;
-            const displayScore = Number((p.totalScore + currentRoundTotal).toFixed(1));
+            const displayScore = Number((p.totalScore + currentRoundTotal).toFixed(2));
 
             // Generate Buttons
             const genBtns = (type, maxPts, kPts) => {
                 if (!showContent) return '';
                 const currentVal = type === 'art' ? as : ss;
                 const isFull = currentVal === maxPts;
-                const isPart = currentVal === Number((maxPts*kPts).toFixed(1));
+                const isPart = currentVal === Number((maxPts*kPts).toFixed(2));
                 
                 return `
                 <div class="eval-actions">
                     <button class="btn-eval be-yes ${isFull?'selected':''}" onclick="setScore('${login}', '${type}', ${maxPts})">${maxPts}</button>
-                    <button class="btn-eval be-part ${isPart?'selected':''}" onclick="setScore('${login}', '${type}', ${(maxPts*kPts).toFixed(1)})">${(maxPts*kPts).toFixed(1)}</button>
+                    <button class="btn-eval be-part ${isPart?'selected':''}" onclick="setScore('${login}', '${type}', ${(maxPts*kPts).toFixed(2)})">${(maxPts*kPts).toFixed(2)}</button>
                     <button class="btn-eval be-undo" onclick="setScore('${login}', '${type}', 0)">СБРОС</button>
                 </div>`;
             };
@@ -758,8 +758,8 @@
         const tbody = document.getElementById('info-table-body');
         tbody.innerHTML = '';
         settings.levels.forEach((lvl, i) => {
-            const artPart = (lvl.pArt * lvl.kArt).toFixed(1);
-            const songPart = (lvl.pSong * lvl.kSong).toFixed(1);
+            const artPart = (lvl.pArt * lvl.kArt).toFixed(2);
+            const songPart = (lvl.pSong * lvl.kSong).toFixed(2);
             tbody.innerHTML += `
                 <tr>
                     <td align=center>${i+1}</td>
