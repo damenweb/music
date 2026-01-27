@@ -519,7 +519,7 @@
         updateStatus("ОЖИДАНИЕ");
         
         // FIX: Delete with filter > 0 to avoid 400
-        await supabaseClient.from('quiz_chat').delete().gt('id', 0); 
+        await supabaseClient.from('quiz_chat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         
         updateTrackDisplay();
         renderTable();
