@@ -395,6 +395,12 @@
         highlightLevelBtn(-1);
         broadcastTimer(0, "");
         
+        supabaseClient.channel('quiz_chat').send({
+            type: 'broadcast',
+            event: 'reveal_answer',
+            payload: { answer: `${row[1]} — ${row[2]}` }
+        });
+        
         const row = playlist[currentIndex];
         const art = row[1] || "???";
         const sng = row[2] || "???";
