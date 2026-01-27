@@ -773,8 +773,8 @@
         const now = Date.now();
         let changed = false;
         Object.keys(players).forEach(k => {
-            // Удаляем только если игрока нет в onlineUsers И его не видели 30 минут
-            if (!onlineUsers.has(k) && (now - players[k].lastSeen > 1800000)) {
+            // Удаляем только если игрока нет в onlineUsers И его не видели 10 минут
+            if (!onlineUsers.has(k) && (now - players[k].lastSeen > 5000)) {
                 delete players[k];
                 changed = true;
             }
@@ -783,7 +783,7 @@
             renderTable();
             saveGlobalState();
         }
-    }, 60000);
+    }, 1000);
 
 </script>
 <script src="https://www.youtube.com/iframe_api"></script>
