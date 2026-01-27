@@ -693,12 +693,12 @@
             const sngHtml = `<div class="ans-block ${!showContent && rd.status==='ANS' ? 'hidden-text' : ''}">${rd.songAns || (rd.status.includes('SKIP') ? 'SKIP' : '---')}</div>` + genBtns('song', cfg.pSong, cfg.kSong);
 
             tr.innerHTML = `
-                <td><b>${login}</b> <small style="color:${isOnline?'#2e7d32':'#555'}">●</small></td>
+                <td align=center><b>${login}</b> <small style="color:${isOnline?'#2e7d32':'#555'}">●</small></td>
                 <td align=center><input type="number" value="${displayScore}" onchange="manualEditTotal('${login}', this.value)" style="width:60px;background:#000;color:#fff;border:1px solid #444;text-align:center;font-size:14px;font-weight:bold"></td>
-                <td class="ans-cell">${artHtml}</td>
-                <td class="ans-cell">${sngHtml}</td>
-                <td style="text-align:center">${rd.stage!==null ? (rd.stage+1) : '-'}</td>
-                <td style="text-align:center"><button onclick="removePlayer('${login}')" style="color:#c62828;border:none;background:none;font-weight:bold;cursor:pointer">❌</button></td>
+                <td align=center class="ans-cell">${artHtml}</td>
+                <td align=center class="ans-cell">${sngHtml}</td>
+                <td align=center style="text-align:center">${rd.stage!==null ? (rd.stage+1) : '-'}</td>
+                <td align=center style="text-align:center"><button onclick="removePlayer('${login}')" style="color:#c62828;border:none;background:none;font-weight:bold;cursor:pointer">❌</button></td>
             `;
             tbody.appendChild(tr);
         });
