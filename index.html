@@ -173,13 +173,13 @@
         if(!a && !s) return;
         hasAnsweredThisSong = true;
         await submit("ANS", `${a} | ${s}`);
-        document.getElementById('status').innerText = "Ответ принят! Ожидайте следующую песню 😎";
+        document.getElementById('status').innerText = "😎 Ответ принят! Ожидай следующую песню";
     }
 
     async function skipHint() {
         if (hasAnsweredThisSong) return;
         await submit("SKIP", "SKIP");
-        document.getElementById('status').innerText = "🏳️ Ждем следующую подсказку";
+        document.getElementById('status').innerText = "🙄 Ждем следующую подсказку";
         toggleInputs(false);
     }
 
