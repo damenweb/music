@@ -20,6 +20,19 @@
         button { width: 100%; padding: 15px; background: var(--accent); border: none; color: white; font-weight: bold; border-radius: 8px; font-size: 14px; cursor: pointer; transition: 0.2s; margin-top: 5px; }
         button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,120,212,0.3); }
         button:disabled { background: #333; color: #777; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .button-group {
+            display: flex;
+            gap: 10px;        /* Расстояние между кнопками */
+            margin-top: 10px; /* Отступ всей группы от элементов выше */
+        }
+        
+        .button-group button {
+            flex: 1;          /* Делает кнопки одинаковой ширины */
+            margin-top: 0;    /* Сбрасываем верхний отступ, который был в старых стилях */
+            white-space: nowrap; /* Чтобы текст не переносился (по желанию) */
+            font-size: 11px;  /* Немного уменьшим шрифт, чтобы текст влез в узкие кнопки */
+        }
         
         .btn-skip { background: transparent; border: 1px solid #555; color: #aaa; margin-top: 10px; padding: 10px; font-size: 13px; }
         .btn-skip:hover:not(:disabled) { border-color: #888; color: white; }
@@ -78,10 +91,11 @@
         </div>
         
         <button id="sendBtn" onclick="send()" disabled>ОТПРАВИТЬ ОТВЕТ</button>
-        <button id="skipBtn" class="btn-skip" onclick="skipHint()" disabled>Пропустить подсказку</button>
-        <button id="giveUpBtn" class="btn-skip btn-giveup" onclick="skipSong()" disabled>Пропустить песню целиком</button>
-        
-        <div id="status" class="status-msg">Ждем начала...</div>
+        <div class="button-group">
+            <button id="skipBtn" class="btn-skip" onclick="skipHint()" disabled>Подождать подсказку</button>
+            <button id="giveUpBtn" class="btn-skip btn-giveup" onclick="skipSong()" disabled>Пропустить песню</button>
+        </div>
+        <div id="status" class="status-msg"></div>
 
         <table class="points-table">
             <thead>
