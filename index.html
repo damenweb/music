@@ -71,6 +71,11 @@
 
         <input type="text" maxlength="50" id="pArtist" placeholder="Исполнитель / исполнители">
         <input type="text" maxlength="50" id="pSong" placeholder="Название песни">
+        <div style="margin-bottom: 15px; font-size: 13px; color: #aaa; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            
+            <input type="checkbox" id="autoSend" style="width: auto; margin: 0;">
+            <label for="autoSend">Отправлять автоматически по истечении таймера</label>
+        </div>
         
         <button id="sendBtn" onclick="send()" disabled>ОТПРАВИТЬ ОТВЕТ</button>
         <button id="skipBtn" class="btn-skip" onclick="skipHint()" disabled>Пропустить подсказку</button>
@@ -98,8 +103,26 @@
     let myLogin = "";
     let localTimerId, currentLvlTag = "", currentSongNum = -1;
     let hasAnsweredThisSong = false; // "done" for the whole track
-
-    window.onload = checkAuth;
+    
+    // В начало скрипта к переменным
+    let autoSendCheck;
+    
+    // Обновите window.onload
+    window.onload = () => {
+        checkAuth();
+        autoSendCheck = document.getElementById('autoSend');
+        
+        // Загружаем состояние из localStorage
+        const savedAutoSend = localStorage.getItem('quiz_autosend');
+        if (savedAutoSend !== null) {
+            autoSendCheck.checked = savedAutoSend === 'true';
+        }
+    
+        // Сохраняем при клике
+        autoSendCheck.addEventListener('change', () => {
+            localStorage.setItem('quiz_autosend', autoSendCheck.checked);
+        });
+    };
 
     async function checkAuth() {
         const u = localStorage.getItem('quiz_user'), p = localStorage.getItem('quiz_pass');
@@ -246,9 +269,16 @@
                 if(left <= 0) { 
                     clearInterval(localTimerId); 
                     if(!hasAnsweredThisSong) {
-                         // Time out for this hint only
-                         toggleInputs(false);
-                         document.getElementById('status').innerText = "Время вышло...";
+                        // Проверка чекбокса и наличия текста
+                        const a = document.getElementById('pArtist').value.trim();
+                        const s = document.getElementById('pSong').value.trim();
+                        
+                        if(autoSendCheck.checked && (a || s)) {
+                            send(); // Вызываем существующую функцию отправки
+                        } else {
+                            toggleInputs(false);
+                            document.getElementById('status').innerText = "Время вышло...";
+                        }
                     }
                 }
             }, 1000);
