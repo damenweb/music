@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игрок - Quiz Synced</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --gold: #D4AF37; --accent: #0078d4; --bg: #121212; --panel: #1e1e1e; --border: #333; }
+        body { background: var(--bg); color: white; font-family: 'Roboto', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 15px; box-sizing: border-box; }
+        
+        .box { background: var(--panel); padding: 25px; border-radius: 8px; width: 100%; max-width: 450px; text-align: center; border: 1px solid var(--border); position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        .info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #252525; padding: 10px 15px; border-radius: 4px; font-size: 13px; border: 1px solid var(--border); }
+        .user-section { display: flex; align-items: center; gap: 10px; }
+        
+        input[type="text"] { width: 100%; padding: 15px; margin: 8px 0; background: #111; border: 1px solid #444; color: white; border-radius: 4px; font-size: 16px; box-sizing: border-box; text-align: center; transition: 0.3s; }
+        input[type="text"]:focus { border-color: var(--accent); outline: none; background: #000; }
+        input[type="text"]:read-only { opacity: 0.5; cursor: not-allowed; }
+        
+        button { width: 100%; padding: 15px; background: var(--accent); border: none; color: white; font-weight: bold; border-radius: 4px; font-size: 14px; cursor: pointer; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        button:hover:not(:disabled) { background: #0086ed; }
+        button:disabled { background: #333; color: #777; cursor: not-allowed; }
+
+        .button-group { display: flex; gap: 10px; margin-top: 10px; }
+        .button-group button { flex: 1; margin-top: 0; font-size: 11px; padding: 10px; }
+        
+        .btn-skip { background: transparent; border: 1px solid #555; color: #aaa; }
+        .btn-giveup { background: #2c1a17; border: 1px solid #4e342e; color: #ffab91; }
+        .btn-logout { background: transparent; border: 1px solid #444; color: #777; padding: 4px 8px; font-size: 10px; width: auto; margin-top: 0; }
+
+        #player-timer { font-size: 72px; font-weight: bold; color: var(--accent); margin: 10px 0; font-family: 'Courier New', monospace; text-shadow: 0 0 20px rgba(0, 120, 212, 0.3); }
+        
+        .lvl-badge { font-size: 18px; color: var(--gold); font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; }
+        .status-msg { margin-top:15px; color:var(--accent); font-weight:bold; min-height: 40px; display: flex; align-items: center; justify-content: center; font-size: 14px; text-transform: uppercase; border-top: 1px solid #333; padding-top: 10px; }
+
+        .points-table { width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 11px; border: 1px solid var(--border); }
+        .points-table th { background: #252525; color: #888; padding: 8px; text-align: center; border-bottom: 1px solid #444; }
+        .points-table td { padding: 8px; text-align: center; border-bottom: 1px solid var(--border); background: #1a1a1a; }
+        .points-table tr.active-lvl td { background: #252525; color: var(--gold); font-weight: bold; border: 1px solid var(--gold); }
+
+        .hidden { display: none !important; }
+        #pause-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; display: none; align-items: center; justify-content: center; border-radius: 8px; backdrop-filter: blur(4px); }
+        #pause-overlay h1 { color: var(--gold); letter-spacing: 5px; transform: rotate(-5deg); border: 4px solid var(--gold); padding: 10px 30px; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen" class="box">
+        <h2 style="color:var(--accent); letter-spacing: 3px; margin-bottom: 20px;">QUIZ PLAYER</h2>
+        <input type="text" id="username" placeholder="ЛОГИН">
+        <input type="text" id="password" placeholder="ПАРОЛЬ"> <button onclick="tryLogin()">ВОЙТИ В ИГРУ</button>
+    </div>
+
+    <div id="game-screen" class="box hidden">
+        <div id="pause-overlay"><h1>ПАУЗА</h1></div>
+        
+        <div class="info-bar">
+            <div>TRACK: <span id="track-val" style="color:white; font-weight: bold;">--</span></div>
+            <div class="user-section">
+                <span id="display-name" style="color: var(--accent); font-weight: bold;"></span>
+                <button class="btn-logout" onclick="logout()">ВЫХОД</button>
+            </div>
+        </div>
+
+        <div id="lvl-badge" class="lvl-badge">ОЖИДАНИЕ</div>
+        <div id="player-timer">00</div>
+        
+        <p style="font-size:10px; color:#666; margin: 0 0 15px 0; text-transform: uppercase;">
+            Один ответ на песню. Выбирай момент с умом.
+        </p>
+
+        <input type="text" id="pArtist" placeholder="ИСПОЛНИТЕЛЬ" autocomplete="off">
+        <input type="text" id="pSong" placeholder="НАЗВАНИЕ ПЕСНИ" autocomplete="off">
+        
+        <div style="margin: 10px 0; font-size: 11px; color: #888; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="autoSend" style="width: auto; margin: 0; cursor: pointer;">
+            <label for="autoSend" style="cursor: pointer;">Отправить автоматически при 00:00</label>
+        </div>
+        
+        <button id="sendBtn" onclick="send()">ОТПРАВИТЬ ОТВЕТ</button>
+        
+        <div class="button-group">
+            <button id="skipBtn" class="btn-skip" onclick="skipHint()">СЛЕД. ПОДСКАЗКА</button>
+            <button id="giveUpBtn" class="btn-giveup" onclick="skipSong()">СДАТЬСЯ (0)</button>
+        </div>
+        
+        <div id="status" class="status-msg">ГОТОВНОСТЬ</div>
+
+        <table class="points-table">
+            <thead>
+                <tr><th>#</th> <th>АРТИСТ</th> <th>ПЕСНЯ</th></tr>
+            </thead>
+            <tbody id="points-body">
+                </tbody>
+        </table>
+    </div>
+<script>
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    let myLogin = localStorage.getItem('quiz_user') || "";
+    let serverState = { songIdx: 0, levelIdx: -1, timerEnd: null };
+    let localTimerInterval;
+    let hasAnsweredCurrentSong = false;
+
+    window.onload = () => {
+        if (!myLogin || !localStorage.getItem('quiz_pass')) {
+            document.getElementById('auth-screen').classList.remove('hidden');
+        } else {
+            showGameScreen();
+        }
+    };
+
+    async function tryLogin() {
+        const u = document.getElementById('username').value.trim();
+        const p = document.getElementById('password').value.trim();
+        const { data, error } = await supabaseClient.from('quiz_users').select('*').eq('username', u).eq('password', p).single();
+        
+        if (data) {
+            localStorage.setItem('quiz_user', u);
+            localStorage.setItem('quiz_pass', p);
+            myLogin = u;
+            showGameScreen();
+        } else {
+            alert("Ошибка входа. Проверьте логин/пароль.");
+        }
+    }
+
+    function showGameScreen() {
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        document.getElementById('display-name').innerText = myLogin;
+        initRealtime();
+        loadInitialState();
+    }
+
+    // --- СИНХРОНИЗАЦИЯ ЧЕРЕЗ БД ---
+    async function loadInitialState() {
+        const { data } = await supabaseClient.from('quiz_state').select('*').eq('id', 1).single();
+        if (data) syncUI(data);
+    }
+
+    function initRealtime() {
+        const channel = supabaseClient.channel('quiz_chat');
+
+        // Слушаем изменения состояния от админа
+        channel.on('broadcast', { event: 'sync_state' }, p => syncUI(p.payload))
+               .on('broadcast', { event: 'pause_toggle' }, p => togglePause(p.payload.isPaused))
+               .on('broadcast', { event: 'reveal_answer' }, p => showAnswer(p.payload.answer))
+               .subscribe(async (status) => {
+                   if (status === 'SUBSCRIBED') {
+                       await channel.track({ user: myLogin });
+                   }
+               });
+        
+        // Подписка на изменения в таблице (для F5)
+        supabaseClient.channel('db_changes')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'quiz_state' }, payload => {
+                syncUI(payload.new);
+            }).subscribe();
+    }
+
+    function syncUI(state) {
+        const prevSongIdx = serverState.songIdx;
+        serverState.songIdx = state.current_index;
+        serverState.levelIdx = state.activeLvlIdx;
+        serverState.timerEnd = state.timerEnd;
+
+        // Если песня сменилась — сбрасываем локальные флаги
+        if (prevSongIdx !== serverState.songIdx) {
+            hasAnsweredCurrentSong = false;
+            document.getElementById('pArtist').value = "";
+            document.getElementById('pSong').value = "";
+            document.getElementById('status').innerText = "НОВАЯ ПЕСНЯ";
+        }
+
+        // Проверяем, отвечал ли игрок (берем из дампа админа в БД)
+        if (state.players_dump && state.players_dump[myLogin]) {
+            const myData = state.players_dump[myLogin];
+            const rd = myData.roundData ? myData.roundData[serverState.songIdx] : null;
+            if (rd && (rd.status === 'ANS' || rd.status === 'SKIP')) {
+                hasAnsweredCurrentSong = true;
+                document.getElementById('status').innerText = rd.status === 'ANS' ? "ОТВЕТ ОТПРАВЛЕН" : "ПЕСНЯ ПРОПУЩЕНА";
+            }
+        }
+
+        document.getElementById('track-val').innerText = `${state.current_index + 1} / ${state.playlist ? state.playlist.length : '?'}`;
+        document.getElementById('lvl-badge').innerText = serverState.levelIdx === -1 ? "ОЖИДАНИЕ" : `ЭТАП ${serverState.levelIdx + 1}`;
+        
+        renderPointsTable(state.settings);
+        handleTimer(state.timerEnd);
+        updateInputStates();
+    }
+
+    // --- ЛОГИКА ТАЙМЕРА ---
+    function handleTimer(endTime) {
+        clearInterval(localTimerInterval);
+        const timerEl = document.getElementById('player-timer');
+        
+        if (!endTime || serverState.levelIdx === -1) {
+            timerEl.innerText = "00";
+            return;
+        }
+
+        localTimerInterval = setInterval(() => {
+            const now = Date.now();
+            const left = Math.ceil((endTime - now) / 1000);
+
+            if (left <= 0) {
+                clearInterval(localTimerInterval);
+                timerEl.innerText = "00";
+                onTimerEnd();
+            } else {
+                timerEl.innerText = left < 10 ? '0' + left : left;
+            }
+        }, 500);
+    }
+
+    function onTimerEnd() {
+        if (!hasAnsweredCurrentSong && document.getElementById('autoSend').checked) {
+            const a = document.getElementById('pArtist').value.trim();
+            const s = document.getElementById('pSong').value.trim();
+            if (a || s) send();
+        }
+        updateInputStates();
+    }
+
+    // --- УПРАВЛЕНИЕ ИНПУТАМИ ---
+    function updateInputStates() {
+        const timerActive = parseInt(document.getElementById('player-timer').innerText) > 0;
+        const canEdit = timerActive && !hasAnsweredCurrentSong;
+
+        document.getElementById('pArtist').readOnly = !canEdit;
+        document.getElementById('pSong').readOnly = !canEdit;
+        document.getElementById('sendBtn').disabled = !canEdit;
+        document.getElementById('skipBtn').disabled = !canEdit;
+        document.getElementById('giveUpBtn').disabled = hasAnsweredCurrentSong;
+
+        if (hasAnsweredCurrentSong) {
+            document.getElementById('pArtist').style.opacity = "0.7";
+            document.getElementById('pSong').style.opacity = "0.7";
+        } else {
+            document.getElementById('pArtist').style.opacity = "1";
+            document.getElementById('pSong').style.opacity = "1";
+        }
+    }
+
+    // --- ОТПРАВКА ДАННЫХ (С ЗАЩИТОЙ ПО ЭТАПУ) ---
+    async function send() {
+        if (hasAnsweredCurrentSong) return;
+
+        const art = document.getElementById('pArtist').value.trim();
+        const sng = document.getElementById('pSong').value.trim();
+        if (!art && !sng) return;
+
+        hasAnsweredCurrentSong = true;
+        updateInputStates();
+
+        // Отправляем сообщение с жесткой привязкой к текущей песне и этапу
+        await supabaseClient.channel('quiz_chat').send({
+            type: 'broadcast',
+            event: 'player_msg',
+            payload: {
+                player: myLogin,
+                type: 'ANS',
+                msg: `${art} | ${sng}`,
+                songIdx: serverState.songIdx,
+                levelIdx: serverState.levelIdx // Игрок говорит админу: "Я ответил на 1-м этапе"
+            }
+        });
+        document.getElementById('status').innerText = "ОТВЕТ ПРИНЯТ";
+    }
+
+    async function skipHint() {
+        if (hasAnsweredCurrentSong) return;
+        // Просто визуально блокируем до след. этапа (или уведомляем админа о пропуске)
+        document.getElementById('status').innerText = "ЖДЕМ ПОДСКАЗКУ...";
+        updateInputStates();
+    }
+
+    async function skipSong() {
+        if (hasAnsweredCurrentSong) return;
+        if (!confirm("Пропустить песню? Баллы за неё начислены не будут.")) return;
+
+        hasAnsweredCurrentSong = true;
+        await supabaseClient.channel('quiz_chat').send({
+            type: 'broadcast',
+            event: 'player_msg',
+            payload: {
+                player: myLogin,
+                type: 'SKIP_SONG',
+                songIdx: serverState.songIdx,
+                levelIdx: serverState.levelIdx
+            }
+        });
+        document.getElementById('status').innerText = "СДАЛСЯ";
+        updateInputStates();
+    }
+
+    // --- ВСПОМОГАТЕЛЬНЫЕ ---
+    function renderPointsTable(settings) {
+        if (!settings) return;
+        const tbody = document.getElementById('points-body');
+        tbody.innerHTML = '';
+        settings.levels.forEach((lvl, i) => {
+            const isCurrent = (i === serverState.levelIdx);
+            tbody.innerHTML += `
+                <tr class="${isCurrent ? 'active-lvl' : ''}">
+                    <td>${i + 1}</td>
+                    <td>${lvl.pArt} <span style="color:#555">(x${lvl.kArt})</span></td>
+                    <td>${lvl.pSong} <span style="color:#555">(x${lvl.kSong})</span></td>
+                </tr>
+            `;
+        });
+    }
+
+    function togglePause(paused) {
+        document.getElementById('pause-overlay').style.display = paused ? 'flex' : 'none';
+    }
+
+    function showAnswer(ans) {
+        document.getElementById('lvl-badge').innerText = ans;
+        document.getElementById('status').innerText = "РАУНД ЗАВЕРШЕН";
+        hasAnsweredCurrentSong = true;
+        updateInputStates();
+    }
+
+    function logout() {
+        if (confirm("Выйти из системы?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+</script>
+    </body>
+</html>
