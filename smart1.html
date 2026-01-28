@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админка - Quiz PRO</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { 
+            --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; 
+            --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; 
+            --accent: #0078d4; --border: #333333; --danger: #c62828; 
+            --answered: #1b4e82; --skipped: #444444; --offline: #000000;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Roboto', sans-serif; background-color: var(--dark-bg); color: var(--text-color); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .login-box { background: #1e1e1e; padding: 40px; border-radius: 12px; border: 1px solid var(--accent); text-align: center; }
+        .login-box input { display: block; width: 250px; padding: 12px; margin: 20px 0; background: #000; border: 1px solid #444; color: white; text-align: center; border-radius: 4px; }
+        .btn-login { background: var(--accent); color: white; border: none; padding: 12px 24px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; }
+        .top-bar { height: 50px; background: var(--panel-bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 15px; }
+        .top-bar input[type="text"] { background: #121212; border: 1px solid #444; color: white; padding: 6px; width: 150px; }
+        .btn-sm { background: transparent; border: 1px solid var(--border); color: #ccc; padding: 5px 12px; cursor: pointer; font-size: 12px; text-transform: uppercase; border-radius: 3px; transition: 0.2s; }
+        .btn-sm:hover { background: #333; color: white; border-color: #555; }
+        .btn-active { border-color: var(--accent); color: var(--accent); }
+        .btn-red { border-color: var(--danger); color: var(--danger); }
+        .pause-btn.paused { background: var(--gold); color: black; border-color: var(--gold); animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+        .header-info { height: 140px; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; border-bottom: 1px solid var(--border); background: #161616; }
+        .song-counter { font-size: 24px; font-weight: 300; width: 200px; }
+        .status-display { flex: 1; text-align: center; font-size: 28px; font-weight: bold; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; }
+        .timer-wrapper { position: relative; width: 100px; height: 100px; display: flex; justify-content: center; align-items: center; }
+        .timer-svg { width: 100px; height: 100px; transform: rotate(-90deg); }
+        .timer-circle { fill: none; stroke: var(--accent); stroke-width: 6; stroke-dasharray: 283; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
+        .timer-text { position: absolute; font-size: 32px; font-family: monospace; font-weight: bold; color: white; }
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+        .controls-section { width: 30%; min-width: 320px; border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; background: #181818; overflow-y: auto; }
+        .play-buttons { display: flex; gap: 15px; justify-content: center; width: 100%; }
+        .btn-play { width: 80px; height: 80px; border-radius: 50%; border: none; font-weight: bold; font-size: 14px; color: white; cursor: pointer; transition: transform 0.1s; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); opacity: 0.4; }
+        .btn-play.active { opacity: 1; outline: 3px solid white; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); } }
+        .nav-buttons { display: flex; width: 100%; gap: 10px; }
+        .btn-nav { flex: 1; padding: 15px 0; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .info-table-container { width: 100%; margin-top: auto; background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333; }
+        .info-table { width: 100%; border-collapse: collapse; font-size: 12px; color: #ccc; }
+        .table-section { width: 70%; padding: 0; overflow-y: auto; background: var(--panel-bg); }
+        .unified-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+        .unified-table th { background: #252525; position: sticky; top: 0; padding: 12px; text-align: center; border-bottom: 2px solid #444; z-index: 10; font-weight: 500; }
+        .player-row.answered { background: var(--answered) !important; }
+        .player-row.skipped { background: var(--skipped) !important; }
+        .player-row.done-song { background: #3e2723 !important; }
+        .ans-block.hidden-text { background: #444; color: #444; user-select: none; }
+        .eval-actions { display: flex; gap: 4px; justify-content: center; margin-top: 5px; }
+        .btn-eval { padding: 4px 8px; border: none; border-radius: 2px; font-size: 11px; cursor: pointer; color: white; opacity: 0.6; }
+        .btn-eval.selected { opacity: 1; outline: 1px solid white; }
+        .be-yes { background: #2e7d32; } .be-part { background: #f9a825; color: #000; } .be-no { background: #c62828; }
+        #settings-overlay { display: none; position: fixed; top: 50px; right: 20px; width: 650px; background: #222; border: 1px solid #444; z-index: 5000; padding: 20px; border-radius: 8px; }
+        .settings-table { width: 100%; border-collapse: collapse; }
+        .settings-table input { width: 50px; background: #111; color: white; border: 1px solid #555; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div class="login-box">
+        <h2>Quiz Admin PRO</h2>
+        <input type="password" id="admin-password" placeholder="Пароль" onkeydown="if(event.key==='Enter') login()">
+        <button class="btn-login" onclick="login()">ВОЙТИ</button>
+    </div>
+</div>
+
+<input type="file" id="excel-file" hidden accept=".xlsx, .xls">
+
+<div class="top-bar">
+    <button class="btn-sm" onclick="document.getElementById('excel-file').click()">Загрузить Excel</button>
+    <div style="display:flex; gap:5px;">
+        <input type="text" id="gsheets-url" placeholder="Google Sheet CSV URL">
+        <button class="btn-sm" onclick="loadFromGSheets()">Load URL</button>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn-sm" onclick="toggleSettings()">Настройки</button>
+    <button id="btn-pause" class="btn-sm pause-btn" onclick="togglePause()">ПАУЗА</button>
+    <button class="btn-sm btn-red" onclick="resetGame()">RESET (F5)</button>
+</div>
+
+<div class="header-info">
+    <div class="song-counter" id="track-counter">Песня 0 / 0</div>
+    <div class="status-display" id="status-display">ОЖИДАНИЕ</div>
+    <div class="timer-wrapper">
+        <svg class="timer-svg"><circle class="timer-circle" id="timer-circle" cx="50" cy="50" r="45"></circle></svg>
+        <div class="timer-text" id="timer-display">00</div>
+    </div>
+</div>
+
+<div class="main-container">
+    <div class="controls-section">
+        <div class="play-buttons">
+            <button id="btn-lvl-0" class="btn-play" style="background:var(--gold)" onclick="manualStart(0)"><span>PLAY</span><span>1</span></button>
+            <button id="btn-lvl-1" class="btn-play" style="background:var(--silver)" onclick="manualStart(1)"><span>PLAY</span><span>2</span></button>
+            <button id="btn-lvl-2" class="btn-play" style="background:var(--bronze)" onclick="manualStart(2)"><span>PLAY</span><span>3</span></button>
+        </div>
+        <div class="nav-buttons">
+            <button class="btn-nav" onclick="changeTrack(-1)">⏮ ПРЕД</button>
+            <button class="btn-nav" style="background:var(--accent)" onclick="forceReveal()">ОТВЕТ</button>
+            <button class="btn-nav" onclick="changeTrack(1)">СЛЕД ⏭</button>
+        </div>
+        <div class="info-table-container">
+            <table class="info-table">
+                <thead><tr><th>#</th><th>Исполнитель</th><th>Песня</th></tr></thead>
+                <tbody id="info-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="table-section">
+        <table class="unified-table">
+            <thead>
+                <tr>
+                    <th style="width:20%">Игрок</th>
+                    <th style="width:10%">Очки</th>
+                    <th style="width:30%">Исполнитель</th>
+                    <th style="width:30%">Песня</th>
+                    <th style="width:5%">Этап</th>
+                    <th style="width:5%"></th>
+                </tr>
+            </thead>
+            <tbody id="players-table-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="settings-overlay">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Настройки Раундов</h3>
+        <button class="btn-sm btn-red" onclick="restoreDefaultSettings()">Default</button>
+    </div>
+    <table class="settings-table">
+        <thead>
+            <tr><th>Ур</th><th>Длит</th><th>Таймер</th><th>Очки А</th><th>Очки П</th><th>Кеф А</th><th>Кеф П</th><th>Комбо</th></tr>
+        </thead>
+        <tbody id="settings-tbody"></tbody>
+    </table>
+</div>
+
+<div id="player-api-container" style="display:none;"><div id="yt-player"></div></div>
+
+<script>
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    let playlist = [], currentIndex = 0, ytPlayer;
+    let players = {}, onlineUsers = new Set(), sortedPlayerLogins = [];
+    const DEFAULT_SETTINGS = [
+        { dur: 1.0, timer: 23, pArt: 40, pSong: 60, kArt: 0.75, kSong: 0.75, combo: 0 },
+        { dur: 4.0, timer: 20, pArt: 24, pSong: 36, kArt: 0.75, kSong: 0.75, combo: 0 },
+        { dur: 12.0, timer: 13, pArt: 15, pSong: 15, kArt: 0.5, kSong: 0.5, combo: 0 }
+    ];
+    let settings = { levels: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) };
+    let activeLevel = -1, currentPhase = 'IDLE', timerId, playTimeout, isPaused = false;
+    const TIMER_CIRCLE_C = 283;
+
+    async function login() {
+        const pass = document.getElementById('admin-password').value;
+        const { data } = await supabaseClient.from('quiz_users').select('password').eq('username', 'admin').single();
+        if (data && data.password === pass) {
+            document.getElementById('login-screen').style.display = 'none';
+            sessionStorage.setItem('quiz_authorized', 'true');
+            initApp();
+        } else alert('Неверный пароль');
+    }
+
+    if (sessionStorage.getItem('quiz_authorized') === 'true') {
+        document.getElementById('login-screen').style.display = 'none';
+        initApp();
+    }
+
+    async function initApp() {
+        await loadSettings();
+        await restoreState();
+        renderSettings();
+        if (sortedPlayerLogins.length === 0) sortedPlayerLogins = Object.keys(players).sort();
+        renderTable();
+    }
+
+    function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('yt-player', {
+            height: '1', width: '1',
+            playerVars: { 'autoplay': 0, 'controls': 0 },
+            events: { 
+                'onReady': (e) => e.target.setVolume(100),
+                'onStateChange': (e) => {
+                    if (e.data == YT.PlayerState.PLAYING && currentPhase === 'PRELOAD') {
+                        currentPhase = 'PLAYING';
+                        updateStatus("ОЖИДАНИЕ ОТВЕТОВ");
+                        const cfg = settings.levels[activeLevel];
+                        const total = Math.ceil(cfg.dur) + cfg.timer;
+                        broadcastTimer(total, `Подсказка ${activeLevel+1}`);
+                        startInternalTimer(total);
+                        clearTimeout(playTimeout);
+                        playTimeout = setTimeout(() => ytPlayer.pauseVideo(), cfg.dur * 1000);
+                    }
+                }
+            }
+        });
+    }
+
+    function manualStart(lvl) { if(isPaused) togglePause(); startLevelSequence(lvl); }
+
+    async function startLevelSequence(lvl) {
+        if (!playlist[currentIndex]) return;
+        stopLogic();
+        activeLevel = lvl;
+        currentPhase = 'PRELOAD';
+        updateStatus("ЗАГРУЗКА...");
+        highlightLevelBtn(lvl);
+        
+        const row = playlist[currentIndex];
+        const vid = extractVideoId(row[0]?.toString() || "");
+        const startSec = row[3 + lvl] || 0;
+
+        await supabaseClient.channel('quiz_chat').send({ 
+            type: 'broadcast', event: 'sync_state', 
+            payload: { 
+                songNum: currentIndex + 1, totalSongs: playlist.length, 
+                level: `Подсказка ${lvl+1}`, activeLvlIdx: lvl,
+                allLevels: settings.levels.map(l => ({ pArt: l.pArt, pSong: l.pSong, kArt: l.kArt, kSong: l.kSong }))
+            } 
+        });
+        if(ytPlayer && vid) ytPlayer.loadVideoById({ videoId: vid, startSeconds: startSec });
+    }
+
+    function startInternalTimer(seconds) {
+        clearInterval(timerId);
+        let left = seconds, max = seconds;
+        updateTimerVisual(left, max);
+        timerId = setInterval(() => {
+            if(isPaused) return;
+            left--;
+            updateTimerVisual(left, max);
+            if (left <= 0) { clearInterval(timerId); checkAutoProgress(true); }
+        }, 1000);
+    }
+
+    function updateTimerVisual(v, m) {
+        document.getElementById('timer-display').innerText = v < 10 ? '0'+v : v;
+        const off = m > 0 ? TIMER_CIRCLE_C - (v / m) * TIMER_CIRCLE_C : TIMER_CIRCLE_C;
+        document.getElementById('timer-circle').style.strokeDashoffset = off;
+    }
+
+    function checkAutoProgress(timerExpired) {
+        const pKeys = Object.keys(players).filter(k => onlineUsers.has(k));
+        if (pKeys.length === 0) { if(timerExpired) nextHintOrReveal(); return; }
+
+        let finishedSong = 0, finishedHint = 0;
+        pKeys.forEach(k => {
+            const rd = players[k].roundData;
+            const isDone = (rd.status === 'ANS' || rd.status === 'SKIP_SONG');
+            if (isDone) finishedSong++;
+            if (isDone || rd.status === 'SKIP_HINT') finishedHint++;
+        });
+
+        if (finishedSong >= pKeys.length) { forceReveal(); return; }
+        if (finishedHint >= pKeys.length || timerExpired) nextHintOrReveal();
+    }
+
+    function nextHintOrReveal() {
+        if (activeLevel < 2 && activeLevel !== -1) startLevelSequence(activeLevel + 1);
+        else forceReveal();
+    }
+
+    async function forceReveal() {
+        stopLogic();
+        currentPhase = 'REVEALED';
+        highlightLevelBtn(-1);
+        broadcastTimer(0, "");
+        const row = playlist[currentIndex];
+        const full = `${row[1] || "???"} — ${row[2] || "???"}`;
+        updateStatus(full);
+        await supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'reveal_answer', payload: { answer: full } });
+        renderTable();
+    }
+
+    function stopLogic() {
+        clearTimeout(playTimeout); clearInterval(timerId);
+        if(ytPlayer) ytPlayer.pauseVideo();
+        updateTimerVisual(0, 1);
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        document.getElementById('btn-pause').classList.toggle('paused', isPaused);
+        if (isPaused && ytPlayer) ytPlayer.pauseVideo();
+        else if (currentPhase === 'PLAYING' && ytPlayer) ytPlayer.playVideo();
+        supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'game_paused', payload: { paused: isPaused } });
+    }
+
+    async function changeTrack(dir) {
+        let n = currentIndex + dir;
+        if (n < 0 || n >= playlist.length) return;
+
+        Object.keys(players).forEach(login => {
+            const p = players[login], rd = p.roundData;
+            let rt = (rd.artScore || 0) + (rd.songScore || 0);
+            if (rd.status === 'ANS' && rd.artScore > 0 && rd.songScore > 0) rt += (settings.levels[rd.stage]?.combo || 0);
+            p.totalScore = Number((p.totalScore + rt).toFixed(2));
+            p.roundData = { artAns: null, songAns: null, stage: null, status: 'WAIT', artScore: 0, songScore: 0 };
+        });
+
+        sortedPlayerLogins = Object.keys(players).sort((a,b) => players[b].totalScore - players[a].totalScore);
+        stopLogic();
+        currentIndex = n;
+        activeLevel = -1;
+        updateStatus("ОЖИДАНИЕ");
+        await supabaseClient.from('quiz_chat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        updateTrackDisplay();
+        renderTable();
+        saveGlobalState();
+        if (dir > 0) setTimeout(() => manualStart(0), 1000);
+    }
+
+    const channel = supabaseClient.channel('quiz_chat');
+    channel.on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        onlineUsers.clear();
+        for (const id in state) {
+            state[id].forEach(p => {
+                const login = p.user; onlineUsers.add(login);
+                if (!players[login]) {
+                    players[login] = { totalScore: 0, lastSeen: Date.now(), roundData: { artAns: null, songAns: null, stage: null, status: 'WAIT', artScore: 0, songScore: 0 }};
+                    sortedPlayerLogins.push(login);
+                }
+            });
+        }
+        renderTable();
+    }).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_chat' }, payload => {
+        if (currentPhase !== 'PLAYING') return; // Защита от поздних ответов
+        const data = payload.new;
+        const parts = data.player_name.split(' ');
+        const login = parts.slice(1).join(' ') || data.player_name;
+        if (!players[login]) return;
+
+        const p = players[login];
+        if (data.message === "SKIP_SONG") p.roundData.status = 'SKIP_SONG';
+        else if (data.message === "SKIP") p.roundData.status = 'SKIP_HINT';
+        else {
+            const [art, sng] = data.message.split(' | ');
+            p.roundData = { ...p.roundData, artAns: art, songAns: sng, stage: activeLevel, status: 'ANS' };
+        }
+        renderTable();
+        checkAutoProgress(false);
+    }).subscribe();
+
+    function renderTable() {
+        const tbody = document.getElementById('players-table-body');
+        tbody.innerHTML = '';
+        sortedPlayerLogins.filter(l => players[l]).forEach(login => {
+            const p = players[login], rd = p.roundData, isOnline = onlineUsers.has(login);
+            const tr = document.createElement('tr');
+            tr.className = 'player-row';
+            if (!isOnline) tr.style.opacity = '0.5';
+            if (rd.status === 'ANS') tr.classList.add('answered');
+            else if (rd.status === 'SKIP_HINT') tr.classList.add('skipped');
+            else if (rd.status === 'SKIP_SONG') tr.classList.add('done-song');
+
+            const isRev = currentPhase === 'REVEALED', show = isRev && rd.status === 'ANS';
+            const cfg = settings.levels[rd.stage || 0];
+            const curRound = (rd.artScore || 0) + (rd.songScore || 0) + ( (show && rd.artScore>0 && rd.songScore>0) ? cfg.combo : 0 );
+            
+            const genBtn = (t, m, k) => !show ? '' : `
+                <div class="eval-actions">
+                    <button class="btn-eval be-yes ${rd[t+'Score']==m?'selected':''}" onclick="setScore('${login}','${t}',${m})">+${m}</button>
+                    <button class="btn-eval be-part ${rd[t+'Score']==(m*k).toFixed(2)?'selected':''}" onclick="setScore('${login}','${t}',${(m*k).toFixed(2)})">+${(m*k).toFixed(2)}</button>
+                    <button class="btn-eval be-no" onclick="setScore('${login}','${t}',0)">0</button>
+                </div>`;
+
+            tr.innerHTML = `
+                <td align=center><b>${login}</b> <small style="color:${isOnline?'#2e7d32':'#555'}">●</small></td>
+                <td align=center><input type="number" value="${Number((p.totalScore + curRound).toFixed(2))}" onchange="manualEditTotal('${login}', this.value)" style="width:60px;background:#000;color:#fff;border:1px solid #444;text-align:center;"></td>
+                <td align=center><div class="ans-block ${!show && rd.status==='ANS'?'hidden-text':''}">${rd.artAns || rd.status}</div>${genBtn('art', cfg.pArt, cfg.kArt)}</td>
+                <td align=center><div class="ans-block ${!show && rd.status==='ANS'?'hidden-text':''}">${rd.songAns || rd.status}</div>${genBtn('song', cfg.pSong, cfg.kSong)}</td>
+                <td align=center>${rd.stage!==null?rd.stage+1:'-'}</td>
+                <td align=center><button onclick="removePlayer('${login}')" style="color:var(--danger);border:none;background:none;cursor:pointer">❌</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function setScore(l, t, v) { players[l].roundData[t+'Score'] = parseFloat(v); renderTable(); saveGlobalState(); }
+    function manualEditTotal(l, v) { players[l].totalScore = parseFloat(v); players[l].roundData.artScore = 0; players[l].roundData.songScore = 0; renderTable(); saveGlobalState(); }
+    function removePlayer(l) { if(confirm(`Удалить ${l}?`)) { delete players[l]; sortedPlayerLogins = sortedPlayerLogins.filter(x => x!==l); renderTable(); saveGlobalState(); } }
+    
+    function updateTrackDisplay() { document.getElementById('track-counter').innerText = `Песня ${playlist.length?currentIndex+1:0} / ${playlist.length}`; }
+    function updateStatus(t) { document.getElementById('status-display').innerText = t; }
+    function highlightLevelBtn(l) { document.querySelectorAll('.btn-play').forEach(b => b.classList.remove('active')); if(l>=0) document.getElementById(`btn-lvl-${l}`).classList.add('active'); }
+    function broadcastTimer(sec, lvl) { supabaseClient.channel('quiz_chat').send({ type: 'broadcast', event: 'start_timer', payload: { sec, lvl } }); }
+
+    function toggleSettings() { const s = document.getElementById('settings-overlay'); s.style.display = s.style.display==='block'?'none':'block'; }
+    function renderSettings() {
+        const b = document.getElementById('settings-tbody'); b.innerHTML = '';
+        settings.levels.forEach((l, i) => {
+            b.innerHTML += `<tr><td>${i+1}</td>
+            <td><input type="number" step="0.5" value="${l.dur}" onchange="updateSet(${i},'dur',this.value)"></td>
+            <td><input type="number" value="${l.timer}" onchange="updateSet(${i},'timer',this.value)"></td>
+            <td><input type="number" value="${l.pArt}" onchange="updateSet(${i},'pArt',this.value)"></td>
+            <td><input type="number" value="${l.pSong}" onchange="updateSet(${i},'pSong',this.value)"></td>
+            <td><input type="number" step="0.1" value="${l.kArt}" onchange="updateSet(${i},'kArt',this.value)"></td>
+            <td><input type="number" step="0.1" value="${l.kSong}" onchange="updateSet(${i},'kSong',this.value)"></td>
+            <td><input type="number" value="${l.combo}" onchange="updateSet(${i},'combo',this.value)"></td></tr>`;
+        });
+        renderInfoTable();
+    }
+    function renderInfoTable() {
+        const b = document.getElementById('info-table-body'); b.innerHTML = '';
+        settings.levels.forEach((l, i) => {
+            b.innerHTML += `<tr><td align=center>${i+1}</td><td align=center style="color:var(--gold)">${l.pArt} <small>(${(l.pArt*l.kArt).toFixed(1)})</small></td><td align=center style="color:var(--gold)">${l.pSong} <small>(${(l.pSong*l.kSong).toFixed(1)})</small></td></tr>`;
+        });
+    }
+    function updateSet(i, k, v) { settings.levels[i][k] = parseFloat(v); renderInfoTable(); saveSettingsToSupabase(); }
+    async function saveSettingsToSupabase() { await supabaseClient.from('quiz_settings').upsert({ id: 1, json_data: settings }); }
+    async function loadSettings() { const { data } = await supabaseClient.from('quiz_settings').select('json_data').eq('id', 1).single(); if(data) settings = data.json_data; }
+    async function restoreDefaultSettings() { if(confirm("Сбросить?")) { settings.levels = JSON.parse(JSON.stringify(DEFAULT_SETTINGS)); renderSettings(); saveSettingsToSupabase(); } }
+
+    async function saveGlobalState() {
+        const payload = { id: 1, playlist: playlist, scores: players, current_index: currentIndex };
+        await supabaseClient.from('quiz_state').upsert(payload);
+    }
+    async function restoreState() {
+        const { data } = await supabaseClient.from('quiz_state').select('*').eq('id', 1).single();
+        if (data) {
+            playlist = data.playlist || []; currentIndex = data.current_index || 0; players = data.scores || {};
+            updateTrackDisplay();
+        }
+    }
+    function resetGame() { if(confirm("Перезагрузить страницу?")) location.reload(); }
+    function extractVideoId(u) { return u.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/)?.[1]; }
+    function loadFromGSheets() { 
+        const url = document.getElementById('gsheets-url').value; 
+        fetch(url).then(r => r.text()).then(t => { 
+            const wb = XLSX.read(t, {type:'string'});
+            playlist = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1}).filter(r => r[0]?.toString().includes('http'));
+            currentIndex = 0; updateTrackDisplay(); saveGlobalState();
+        });
+    }
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
