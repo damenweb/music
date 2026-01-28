@@ -12,19 +12,7 @@
         
         .box { background: var(--panel); padding: 25px; border-radius: 15px; width: 100%; max-width: 450px; text-align: center; border: 1px solid #333; position: relative; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
         
-        /* Обновленная верхняя панель */
-        .info-bar { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
-            margin-bottom: 15px; 
-            background: #252525; 
-            padding: 8px 12px; 
-            border-radius: 8px; 
-            font-size: 13px; 
-            font-weight: bold; 
-            border: 1px solid #333; 
-        }
+        .info-bar { display: flex; justify-content: space-between; margin-bottom: 15px; background: #252525; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: bold; border: 1px solid #333; }
         
         input { width: 100%; padding: 15px; margin: 8px 0; background: #111; border: 1px solid #444; color: white; border-radius: 8px; font-size: 16px; box-sizing: border-box; text-align: center; transition: 0.2s; }
         input:focus { border-color: var(--accent); outline: none; }
@@ -33,31 +21,33 @@
         button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,120,212,0.3); }
         button:disabled { background: #333; color: #777; cursor: not-allowed; transform: none; box-shadow: none; }
 
-        .button-group { display: flex; gap: 10px; margin-top: 10px; }
-        .button-group button { flex: 1; margin-top: 0; white-space: nowrap; font-size: 11px; }
+        .button-group {
+            display: flex;
+            gap: 10px;        /* Расстояние между кнопками */
+            margin-top: 10px; /* Отступ всей группы от элементов выше */
+        }
+        
+        .button-group button {
+            flex: 1;          /* Делает кнопки одинаковой ширины */
+            margin-top: 0;    /* Сбрасываем верхний отступ, который был в старых стилях */
+            white-space: nowrap; /* Чтобы текст не переносился (по желанию) */
+            font-size: 11px;  /* Немного уменьшим шрифт, чтобы текст влез в узкие кнопки */
+        }
         
         .btn-skip { background: transparent; border: 1px solid #555; color: #aaa; margin-top: 10px; padding: 10px; font-size: 13px; }
         .btn-skip:hover:not(:disabled) { border-color: #888; color: white; }
-
-        /* Новые стили для кнопки выхода сверху */
-        .btn-logout { 
-            background: #333 !important; 
-            padding: 4px 8px !important; 
-            font-size: 10px !important; 
-            width: auto !important; 
-            margin: 0 !important; 
-            color: #888 !important;
-            border: 1px solid #444 !important;
-        }
-        .btn-logout:hover { background: #444 !important; color: #fff !important; }
+        .btn-logout { width: auto !important; padding: 6px 14px; display: inline-block; }
         
         .btn-giveup { background: #3e2723; border: 1px solid #5d4037; color: #ffab91; margin-top: 5px; }
         .btn-giveup:hover:not(:disabled) { background: #4e342e; border-color: #ffab91; color: white; }
 
         #player-timer { font-size: 64px; font-weight: bold; color: var(--accent); margin: 10px 0; font-family: monospace; text-shadow: 0 0 10px rgba(0,120,212,0.3); }
+        
         .lvl-badge { font-size: 18px; color: var(--gold); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        
         .status-msg { margin-top:15px; color:var(--accent); font-weight:bold; min-height: 40px; line-height: 1.4; display: flex; align-items: center; justify-content: center; }
 
+        /* Points Table */
         .points-table { width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 12px; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
         .points-table th { background: #252525; color: #aaa; padding: 6px; text-align: center; border-bottom: 1px solid #444; }
         .points-table td { padding: 6px; text-align: center; border-bottom: 1px solid #333; background: #1a1a1a; }
@@ -65,6 +55,7 @@
         .points-table tr:last-child td { border-bottom: none; }
 
         .hidden { display: none !important; }
+        
         #pause-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; display: none; align-items: center; justify-content: center; border-radius: 15px; backdrop-filter: blur(2px); }
     </style>
 </head>
@@ -79,10 +70,8 @@
 
     <div id="game-screen" class="box hidden">
         <div id="pause-overlay"><h1 style="color: #ffeb3b">ПАУЗА</h1></div>
-        
         <div class="info-bar">
             <div>TRACK: <span id="track-val">--</span></div>
-            <button class="btn-logout" onclick="logout()">ВЫЙТИ</button>
             <div id="display-name" style="color: var(--accent);"></div>
         </div>
 
@@ -95,10 +84,10 @@
 
         <input type="text" maxlength="50" id="pArtist" placeholder="Исполнитель / исполнители">
         <input type="text" maxlength="50" id="pSong" placeholder="Название песни">
-        
         <div style="margin-bottom: 15px; font-size: 13px; color: #aaa; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            
             <input type="checkbox" id="autoSend" style="width: auto; margin: 0;">
-            <label for="autoSend">Авто-отправка по таймеру</label>
+            <label for="autoSend">Отправлять автоматически по истечении таймера</label>
         </div>
         
         <button id="sendBtn" onclick="send()" disabled>ОТПРАВИТЬ ОТВЕТ</button>
@@ -116,6 +105,8 @@
                 <tr><td colspan="3" style="color:#555">Данные загружаются...</td></tr>
             </tbody>
         </table>
+        
+        <button class="btn-skip btn-logout" style="border:none; font-size:11px; margin-top:20px; color:#555" onclick="logout()">Выйти из аккаунта</button>
     </div>
 
 <script>
@@ -125,16 +116,23 @@
 
     let myLogin = "";
     let localTimerId, currentLvlTag = "", currentSongNum = -1;
-    let hasAnsweredThisSong = false;
+    let hasAnsweredThisSong = false; // "done" for the whole track
+    
+    // В начало скрипта к переменным
     let autoSendCheck;
     
+    // Обновите window.onload
     window.onload = () => {
         checkAuth();
         autoSendCheck = document.getElementById('autoSend');
+        
+        // Загружаем состояние из localStorage
         const savedAutoSend = localStorage.getItem('quiz_autosend');
         if (savedAutoSend !== null) {
             autoSendCheck.checked = savedAutoSend === 'true';
         }
+    
+        // Сохраняем при клике
         autoSendCheck.addEventListener('change', () => {
             localStorage.setItem('quiz_autosend', autoSendCheck.checked);
         });
@@ -171,44 +169,49 @@
         const a = document.getElementById('pArtist').value.trim();
         const s = document.getElementById('pSong').value.trim();
         if(!a && !s) return;
+        
         hasAnsweredThisSong = true;
         await submit("ANS", `${a} | ${s}`);
-        document.getElementById('status').innerText = "😎 Ответ принят! Ожидай следующую песню";
+        document.getElementById('status').innerText = "Ответ принят! Откинься на спинку кресла и жди следующую песню 😎";
     }
 
     async function skipHint() {
         if (hasAnsweredThisSong) return;
-        await submit("SKIP", "SKIP");
-        document.getElementById('status').innerText = "🙄 Ждем следующую подсказку";
-        toggleInputs(false);
+        await submit("SKIP", "SKIP"); // Just skip this hint
+        document.getElementById('status').innerText = "🏳️ Ждем следующую подсказку 😎";
+        toggleInputs(false); // Disable until next hint
     }
 
     async function skipSong() {
         if (hasAnsweredThisSong) return;
-        if(confirm("Сдаться на этой песне?")) {
+        if(confirm("Сдаться на этой песне? (0 баллов)")) {
             hasAnsweredThisSong = true;
             await submit("SKIP_SONG", "SKIP_SONG");
-            document.getElementById('status').innerText = "🏳️ Песня пропущена";
+            document.getElementById('status').innerText = "🏳️ Откинься на спинку кресла и жди следующую песню 😎";
             toggleInputs(false);
         }
     }
 
     async function submit(type, msg) {
+        // Format: "Level Login" (admin expects this structure)
         const fullName = `${currentLvlTag} ${myLogin}`;
         await supabaseClient.from('quiz_chat').insert([{ player_name: fullName, message: msg }]);
         toggleInputs(false);
     }
 
     function toggleInputs(en) {
+        // Global lock if answered song
         const locked = !en || hasAnsweredThisSong;
         document.getElementById('sendBtn').disabled = locked;
         document.getElementById('skipBtn').disabled = locked;
-        document.getElementById('giveUpBtn').disabled = hasAnsweredThisSong;
+        document.getElementById('giveUpBtn').disabled = hasAnsweredThisSong; // Can't give up if already answered
         
-        ['pArtist', 'pSong'].forEach(id => {
+        const fields = ['pArtist', 'pSong'];
+        fields.forEach(id => {
             const el = document.getElementById(id);
             el.readOnly = locked;
-            el.style.opacity = (locked && !hasAnsweredThisSong) ? 0.5 : 1;
+            if(locked && !hasAnsweredThisSong) el.style.opacity = 0.5; // Visual feedback for temp lock
+            else el.style.opacity = 1;
         });
     }
 
@@ -216,12 +219,14 @@
 
     const channel = supabaseClient.channel('quiz_chat');
     
+    // SYNC STATE (Settings & Phase)
     channel.on('broadcast', { event: 'sync_state' }, p => {
         const d = p.payload;
         document.getElementById('track-val').innerText = `${d.songNum}/${d.totalSongs || '?'}`;
         document.getElementById('lvl-badge').innerText = d.level;
         currentLvlTag = d.level;
         
+        // Render Points Table
         if(d.allLevels) {
             const tbody = document.getElementById('points-body');
             tbody.innerHTML = '';
@@ -239,13 +244,17 @@
             });
         }
 
+        // New Song Reset
         if (currentSongNum !== d.songNum) {
             currentSongNum = d.songNum; 
             hasAnsweredThisSong = false;
             document.getElementById('pArtist').value = ""; 
             document.getElementById('pSong').value = "";
             document.getElementById('status').innerText = "Приготовьтесь...";
+            document.getElementById('giveUpBtn').disabled = false;
         }
+        
+        // If user hasn't finished song, disable inputs until timer starts
         if (!hasAnsweredThisSong) toggleInputs(false);
         
     }).on('broadcast', { event: 'game_paused' }, p => {
@@ -274,12 +283,15 @@
                 if(left <= 0) { 
                     clearInterval(localTimerId); 
                     if(!hasAnsweredThisSong) {
+                        // Проверка чекбокса и наличия текста
                         const a = document.getElementById('pArtist').value.trim();
                         const s = document.getElementById('pSong').value.trim();
+                        
                         if(autoSendCheck.checked && (a || s)) {
-                            send();
+                            send(); // Вызываем существующую функцию отправки
                         } else {
                             toggleInputs(false);
+                            document.getElementById('status').innerText = "";
                         }
                     }
                 }
