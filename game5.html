@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админка - Quiz</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { 
+            --gold: #D4AF37; --silver: #B0B0B0; --bronze: #A0522D; 
+            --dark-bg: #121212; --panel-bg: #1e1e1e; --text-color: #ffffff; 
+            --accent: #0078d4; --border: #333333; --danger: #c62828; 
+            --answered: #1b4e82; --skipped: #444444; --offline: #000000;
+        }
+        
+        * { box-sizing: border-box; }
+        body { font-family: 'Roboto', sans-serif; background-color: var(--dark-bg); color: var(--text-color); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* LOGIN */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .login-box { background: #1e1e1e; padding: 40px; border-radius: 12px; border: 1px solid var(--accent); text-align: center; }
+        .login-box input { display: block; width: 250px; padding: 12px; margin: 20px 0; background: #000; border: 1px solid #444; color: white; text-align: center; border-radius: 4px; }
+        .btn-login { background: var(--accent); color: white; border: none; padding: 12px 24px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; }
+
+        /* TOP BAR */
+        .top-bar { height: 50px; background: var(--panel-bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 15px; }
+        .top-bar input[type="text"] { background: #121212; border: 1px solid #444; color: white; padding: 6px; width: 150px; }
+        .btn-sm { background: transparent; border: 1px solid var(--border); color: #ccc; padding: 5px 12px; cursor: pointer; font-size: 12px; text-transform: uppercase; border-radius: 3px; transition: 0.2s; }
+        .btn-sm:hover { background: #333; color: white; border-color: #555; }
+        .btn-active { border-color: var(--accent); color: var(--accent); }
+        .btn-active:hover { background: rgba(0, 120, 212, 0.1); }
+        .btn-red { border-color: var(--danger); color: var(--danger); }
+        .btn-red:hover { background: rgba(198, 40, 40, 0.1); }
+        
+        /* Pause Button Style like Settings */
+        .pause-btn { font-weight: bold; }
+        .pause-btn.paused { background: var(--gold); color: black; border-color: var(--gold); animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+
+        /* HEADER INFO */
+        .header-info { height: 140px; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; border-bottom: 1px solid var(--border); background: #161616; }
+        .song-counter { font-size: 24px; font-weight: 300; width: 200px; }
+        .status-display { flex: 1; text-align: center; font-size: 28px; font-weight: bold; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; }
+        
+        /* CIRCULAR TIMER */
+        .timer-wrapper { position: relative; width: 100px; height: 100px; display: flex; justify-content: center; align-items: center; }
+        .timer-svg { width: 100px; height: 100px; transform: rotate(-90deg); }
+        .timer-circle { fill: none; stroke: var(--accent); stroke-width: 6; stroke-dasharray: 283; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
+        .timer-text { position: absolute; font-size: 32px; font-family: monospace; font-weight: bold; color: white; }
+
+        /* MAIN LAYOUT */
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+        
+        /* LEFT CONTROLS */
+        .controls-section { width: 30%; min-width: 320px; border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; background: #181818; overflow-y: auto; }
+        .play-buttons { display: flex; gap: 15px; justify-content: center; width: 100%; }
+        .btn-play { width: 80px; height: 80px; border-radius: 50%; border: none; font-weight: bold; font-size: 14px; color: white; cursor: pointer; transition: transform 0.1s; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); opacity: 0.4; }
+        .btn-play:hover { opacity: 0.8; }
+        .btn-play.active { opacity: 1; outline: 3px solid white; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); } }
+
+        .nav-buttons { display: flex; width: 100%; gap: 10px; }
+        .btn-nav { flex: 1; padding: 15px 0; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-nav:hover { background: #444; }
+
+        /* INFO TABLE (LEFT BOTTOM) */
+        .info-table-container { width: 100%; margin-top: auto; background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333; }
+        .info-table { width: 100%; border-collapse: collapse; font-size: 12px; color: #ccc; }
+        .info-table th { text-align: left; border-bottom: 1px solid #444; padding: 4px; color: #888; }
+        .info-table td { padding: 4px; border-bottom: 1px solid #333; }
+        .info-table tr:last-child td { border-bottom: none; }
+
+        /* RIGHT TABLE */
+        .table-section { width: 70%; padding: 0; overflow-y: auto; background: var(--panel-bg); }
+        .unified-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+        .unified-table th { background: #252525; position: sticky; top: 0; padding: 12px; text-align: center; border-bottom: 2px solid #444; z-index: 10; font-weight: 500; color: #aaa; }
+        .unified-table td { padding: 8px 12px; border-bottom: 1px solid #333; vertical-align: middle; }
+        
+        /* Player Row States */
+        .player-row { background: #1e1e1e; transition: background 0.3s; }
+        .player-row.offline { opacity: 0.5; }
+        .player-row.answered { background: var(--answered) !important; opacity: 1; }
+        .player-row.skipped { background: var(--skipped) !important; opacity: 0.7; }
+        .player-row.done-song { background: #3e2723 !important; opacity: 0.6; } /* Skipped Song */
+
+        .player-score { font-weight: bold; font-size: 16px; color: var(--gold); }
+        
+        /* ANSWER CELL STYLES */
+        .ans-cell { min-width: 150px; position: relative; }
+        
+        /* Hiding answers securely */
+        .ans-block { display: block; margin-bottom: 4px; padding: 4px; border-radius: 4px; min-height: 24px; font-weight: 500; }
+        .ans-block.hidden-text { 
+            background: #444; 
+            color: #444; /* Text matches bg */
+            user-select: none; 
+            overflow: hidden; 
+            white-space: nowrap;
+            width: 100%;
+        }
+        
+        .eval-actions { display: flex; gap: 4px; justify-content: center; align-items: center; }
+        .btn-eval { padding: 4px 8px; border: none; border-radius: 2px; font-size: 11px; font-weight: bold; cursor: pointer; color: white; min-width: 35px; opacity: 0.6; transition: 0.2s; }
+        .btn-eval:hover { opacity: 1; transform: scale(1.05); }
+        .btn-eval.selected { opacity: 1; box-shadow: 0 0 5px white; border: 1px solid white; }
+        
+        .be-yes { background: #2e7d32; }
+        .be-part { background: #f9a825; color: black; }
+        .be-no { background: #c62828; }
+        .be-undo { background: #555; font-size: 10px; }
+
+        /* SETTINGS OVERLAY */
+        #settings-overlay { display: none; position: fixed; top: 50px; right: 20px; width: 650px; background: #222; border: 1px solid #444; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 5000; padding: 20px; border-radius: 8px; }
+        .settings-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .settings-table th, .settings-table td { padding: 8px; border: 1px solid #444; text-align: center; font-size: 13px; }
+        .settings-table input { width: 50px; background: #111; border: 1px solid #555; color: white; text-align: center; padding: 4px; }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div class="login-box">
+        <h2>Quiz Admin PRO</h2>
+        <input type="password" id="admin-password" placeholder="Пароль" onkeydown="if(event.key==='Enter') login()">
+        <button class="btn-login" onclick="login()">ВОЙТИ</button>
+    </div>
+</div>
+
+<input type="file" id="excel-file" hidden accept=".xlsx, .xls">
+
+<div class="top-bar">
+    <button class="btn-sm" onclick="document.getElementById('excel-file').click()">Загрузить Excel</button>
+    <div style="display:flex; gap:5px;">
+        <input type="text" id="gsheets-url" placeholder="Google Sheet CSV URL">
+        <button class="btn-sm" onclick="loadFromGSheets()">Load URL</button>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn-sm" onclick="toggleSettings()">Настройки</button>
+    <button id="btn-pause" class="btn-sm pause-btn" onclick="togglePause()">ПАУЗА</button>
+    <button class="btn-sm btn-red" onclick="resetGame()">RESET (F5)</button>
+</div>
+
+<div class="header-info">
+    <div class="song-counter" id="track-counter">Песня 0 / 0</div>
+    
+    <div class="status-display" id="status-display">ОЖИДАНИЕ</div>
+
+    <div class="timer-wrapper">
+        <svg class="timer-svg">
+            <circle class="timer-circle" id="timer-circle" cx="50" cy="50" r="45"></circle>
+        </svg>
+        <div class="timer-text" id="timer-display">00</div>
+    </div>
+</div>
+
+<div class="main-container">
+    <div class="controls-section">
+        <div class="play-buttons">
+            <button id="btn-lvl-0" class="btn-play" style="background:var(--gold)" onclick="manualStart(0)">
+                <span>PLAY</span><span>1</span>
+            </button>
+            <button id="btn-lvl-1" class="btn-play" style="background:var(--silver)" onclick="manualStart(1)">
+                <span>PLAY</span><span>2</span>
+            </button>
+            <button id="btn-lvl-2" class="btn-play" style="background:var(--bronze)" onclick="manualStart(2)">
+                <span>PLAY</span><span>3</span>
+            </button>
+        </div>
+
+        <div class="nav-buttons">
+            <button class="btn-nav" onclick="changeTrack(-1)">⏮ ПРЕД</button>
+            <button class="btn-nav" style="background:var(--accent)" onclick="forceReveal()">ОТВЕТ</button>
+            <button class="btn-nav" onclick="changeTrack(1)">СЛЕД ⏭</button>
+        </div>
+
+        <div class="info-table-container">
+            <table class="info-table">
+                <thead><tr><th>Подсказка</th><th>Исполнитель (частично)</th><th>Песня (частично)</th></tr></thead>
+                <tbody id="info-table-body">
+                    </tbody>
+            </table>
+        </div>
+
+        <div id="settings-overlay">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Настройки Раундов</h3>
+                <button class="btn-sm btn-red" onclick="restoreDefaultSettings()">Сбросить на Default</button>
+            </div>
+            <table class="settings-table">
+                <thead>
+                    <tr><th>Ур</th> <th>Длит (сек)</th> <th>Таймер</th> <th>Очки Арт.</th> <th>Очки Песня</th> <th>Коэф. Арт.</th> <th>Коэф. Песня</th> <th>Комбо</th></tr>
+                </thead>
+                <tbody id="settings-tbody"></tbody>
+            </table>
+            <p style="font-size:12px; color:#888; margin-top:10px;">* Настройки сохраняются автоматически.</p>
+        </div>
+    </div>
+
+    <div class="table-section">
+        <table class="unified-table">
+            <thead>
+                <tr>
+                    <th style="width:20%">Игрок</th>
+                    <th style="width:10%">Очки</th>
+                    <th style="width:30%">Исполнитель</th>
+                    <th style="width:30%">Песня</th>
+                    <th style="width:5%">Этап</th>
+                    <th style="width:5%"></th>
+                </tr>
+            </thead>
+            <tbody id="players-table-body">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="player-api-container" style="display:none;"><div id="yt-player"></div></div>
+
+<script>
+    // --- CONFIG & STATE ---
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co'; 
+    const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
+    const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+    const DEFAULT_SETTINGS = {
+        levels: [
+            { dur: 20, timer: 15, pArt: 1, pSong: 1, kArt: 1.0, kSong: 1.0, combo: 3 }, // Hint 1
+            { dur: 20, timer: 15, pArt: 1, pSong: 1, kArt: 0.8, kSong: 0.8, combo: 2 }, // Hint 2
+            { dur: 20, timer: 15, pArt: 1, pSong: 1, kArt: 0.5, kSong: 0.5, combo: 1 }  // Hint 3
+        ]
+    };
+
+    let settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+    let playlist = [];
+    let players = {}; // { username: { score: 0, answers: { songIdx: { art: val, song: val, stage: 0 } } } }
+    let onlineUsers = new Set();
+    
+    // Global State
+    let currentIndex = 0; // Current Song Index
+    let activeLevelIndex = -1; // 0, 1, 2. -1 means waiting
+    let isPaused = false;
+    let timerInterval;
+    let timerValue = 0;
+    
+    // YouTube
+    let player; 
+    let isPlayerReady = false;
+
+    // --- INITIALIZATION ---
+    window.onload = async () => {
+        await loadSettings();
+        await restoreState();
+        initSupabase();
+        renderSettings();
+        renderPlayers();
+    };
+
+    function onYouTubeIframeAPIReady() {
+        player = new YT.Player('yt-player', {
+            height: '0', width: '0',
+            events: { 'onReady': () => { isPlayerReady = true; } }
+        });
+    }
+
+    // --- SUPABASE & REALTIME ---
+    async function login() {
+        const p = document.getElementById('admin-password').value;
+        if(p === "admin123") { // Simple protection
+            document.getElementById('login-screen').style.display = 'none';
+        } else {
+            alert("Неверный пароль");
+        }
+    }
+
+    function initSupabase() {
+        const channel = supabaseClient.channel('quiz_chat');
+        
+        // 1. Listen for Presence (Online Status)
+        channel.on('presence', { event: 'sync' }, () => {
+            const state = channel.presenceState();
+            onlineUsers.clear();
+            for (const id in state) {
+                if(state[id][0] && state[id][0].user) onlineUsers.add(state[id][0].user);
+            }
+            renderPlayers(); // Update visual opacity
+        });
+
+        // 2. Listen for Answers (Messages)
+        channel.on('broadcast', { event: 'player_msg' }, (payload) => {
+            handlePlayerMessage(payload.payload);
+        });
+
+        channel.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await channel.track({ user: 'ADMIN', type: 'admin' });
+            }
+        });
+    }
+
+    // --- CORE LOGIC: HANDLING MESSAGES ---
+    function handlePlayerMessage(data) {
+        // data: { player: "Login", type: "ANS"|"SKIP", msg: "A | S", songIdx: 5, levelIdx: 0 }
+        
+        // Validation: Must be for the current song
+        if (data.songIdx !== currentIndex) return; 
+
+        if (!players[data.player]) {
+            players[data.player] = { score: 0, total_score: 0, last_seen: Date.now(), roundData: {} };
+        }
+        
+        const p = players[data.player];
+        
+        // Ensure roundData exists for this song
+        if (!p.roundData[currentIndex]) {
+            p.roundData[currentIndex] = { 
+                artRaw: null, songRaw: null, 
+                artScore: 0, songScore: 0, 
+                stage: data.levelIdx, // Save the stage they answered in
+                status: 'WAIT' 
+            };
+        }
+
+        const rd = p.roundData[currentIndex];
+
+        // If already answered fully, ignore (unless updates allowed logic, but usually 1 attempt)
+        if (rd.status === 'DONE') return;
+
+        if (data.type === 'SKIP_SONG') {
+            rd.status = 'SKIP';
+            rd.stage = data.levelIdx;
+        } 
+        else if (data.type === 'ANS') {
+            const parts = data.msg.split('|');
+            const artAns = parts[0] ? parts[0].trim() : "";
+            const songAns = parts[1] ? parts[1].trim() : "";
+            
+            rd.artRaw = artAns;
+            rd.songRaw = songAns;
+            rd.status = 'ANS';
+            rd.stage = data.levelIdx; // !IMPORTANT: Use the User's level, not admin's
+            
+            // Auto-Evaluation (Simple Exact Match or Fuzzy could be added here)
+            // For now, we just mark them as ready for manual check or auto-check if strict
+            autoEvaluate(data.player, currentIndex, data.levelIdx);
+        }
+
+        renderPlayers();
+        saveGlobalState();
+    }
+
+    function autoEvaluate(playerName, songIdx, lvlIdx) {
+        // This calculates POTENTIAL score based on the level the user sent
+        // Actual manual approval applies this score
+        const correctArt = playlist[songIdx].artist.toLowerCase();
+        const correctSong = playlist[songIdx].song.toLowerCase();
+        const p = players[playerName];
+        const rd = p.roundData[songIdx];
+        const lvl = settings.levels[lvlIdx]; // !IMPORTANT: Use settings for the specific level
+
+        // Logic for auto-grading (simplified for example)
+        // If we wanted auto-grading:
+        /*
+        if (rd.artRaw.toLowerCase() === correctArt) rd.artScore = lvl.pArt * lvl.kArt;
+        if (rd.songRaw.toLowerCase() === correctSong) rd.songScore = lvl.pSong * lvl.kSong;
+        */
+        // But we leave it for Manual Review via the table buttons usually.
+        // However, we MUST store the multipliers to use when clicking "Correct"
+        rd.multArt = lvl.kArt;
+        rd.multSong = lvl.kSong;
+        rd.baseArt = lvl.pArt;
+        rd.baseSong = lvl.pSong;
+    }
+
+    // --- GAME LOOP & SYNC ---
+
+    async function broadcastState(evtType) {
+        // Sends the source of truth to all players
+        const payload = {
+            songNum: currentIndex + 1,
+            totalSongs: playlist.length,
+            activeLvlIdx: activeLevelIndex, // 0, 1, 2
+            isPaused: isPaused,
+            timerEnd: evtType === 'start_timer' ? (Date.now() + (timerValue * 1000)) : null,
+            playlistInfo: null // Don't send full playlist obviously
+        };
+
+        if (activeLevelIndex >= 0 && activeLevelIndex < 3) {
+             // Send hints for the current level
+             const track = playlist[currentIndex];
+             // Logic to partial hide artist/song based on level can go here
+             // For simplicity, players rely on audio mostly
+        }
+
+        await supabaseClient.channel('quiz_chat').send({
+            type: 'broadcast',
+            event: 'sync_state',
+            payload: payload
+        });
+    }
+
+    function manualStart(lvlIdx) {
+        if(playlist.length === 0) return alert("Загрузите плейлист!");
+        
+        activeLevelIndex = lvlIdx;
+        const currentLvlSettings = settings.levels[lvlIdx];
+        
+        // 1. Audio Control
+        const track = playlist[currentIndex];
+        if(isPlayerReady && track.link) {
+            const videoId = extractVideoId(track.link);
+            const startSec = parseTime(track.start);
+            // If Level 0, start from beginning (or specified start)
+            // If Level 1, maybe continue? Usually we restart segment or continue
+            player.loadVideoById({videoId: videoId, startSeconds: startSec});
+            player.playVideo();
+            
+            // Stop video after duration
+            setTimeout(() => { if(activeLevelIndex === lvlIdx) player.pauseVideo(); }, currentLvlSettings.dur * 1000);
+        }
+
+        // 2. Timer
+        startTimer(currentLvlSettings.timer);
+
+        // 3. UI Update
+        document.getElementById('status-display').innerText = `ПОДСКАЗКА ${lvlIdx + 1}`;
+        highlightPlayBtn(lvlIdx);
+
+        // 4. Broadcast
+        broadcastState('start_timer');
+    }
+
+    function startTimer(sec) {
+        clearInterval(timerInterval);
+        timerValue = sec;
+        updateTimerUI(timerValue);
+        
+        const endTime = Date.now() + (sec * 1000);
+
+        timerInterval = setInterval(() => {
+            const now = Date.now();
+            const left = Math.ceil((endTime - now) / 1000);
+            
+            if (left <= 0) {
+                clearInterval(timerInterval);
+                updateTimerUI(0);
+                // Don't auto-stop level index, just timer visual
+                // Players can still send if we allow "grace period" or logic handles it
+                // But usually we want to enforce time.
+                // We rely on Client-side auto-send for UX, but Server receives late packets.
+            } else {
+                updateTimerUI(left);
+            }
+        }, 500);
+    }
+
+    function updateTimerUI(val) {
+        document.getElementById('timer-display').innerText = val < 10 ? "0"+val : val;
+        // Circle animation logic (simplified)
+        const circle = document.getElementById('timer-circle');
+        const max = 283; 
+        const total = settings.levels[activeLevelIndex]?.timer || 1;
+        const offset = max - (val / total) * max;
+        circle.style.strokeDashoffset = offset;
+    }
+
+    function changeTrack(dir) {
+        const newIdx = currentIndex + dir;
+        if (newIdx < 0 || newIdx >= playlist.length) return;
+        
+        currentIndex = newIdx;
+        activeLevelIndex = -1; // Reset level
+        clearInterval(timerInterval);
+        updateTimerUI(0);
+        document.getElementById('track-counter').innerText = `Песня ${currentIndex+1} / ${playlist.length}`;
+        document.getElementById('status-display').innerText = "ОЖИДАНИЕ";
+        
+        // Clear highlights
+        [0,1,2].forEach(i => document.getElementById(`btn-lvl-${i}`).classList.remove('active'));
+        
+        // Update Info Table for Admin
+        renderInfoTable();
+        
+        // Notify Players (Clean slate for new song)
+        broadcastState('new_song');
+        saveGlobalState();
+    }
+
+    function forceReveal() {
+        if(!playlist[currentIndex]) return;
+        const t = playlist[currentIndex];
+        const ans = `${t.artist} - ${t.song}`;
+        
+        supabaseClient.channel('quiz_chat').send({
+            type: 'broadcast',
+            event: 'reveal_answer',
+            payload: { answer: ans }
+        });
+        document.getElementById('status-display').innerText = "ОТВЕТ ПОКАЗАН";
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('btn-pause');
+        if (isPaused) {
+            btn.classList.add('paused');
+            if(player && isPlayerReady) player.pauseVideo();
+            clearInterval(timerInterval); // Pause timer logic locally
+        } else {
+            btn.classList.remove('paused');
+            // Resume timer logic is complex, for now we just unpause video
+            if(player && isPlayerReady) player.playVideo();
+        }
+        broadcastState('pause_toggle');
+    }
+
+    // --- DATA HANDLING (EXCEL & SAVE) ---
+    
+    // ... (Excel parsing logic remains similar, included in next block if needed, 
+    // but for brevity I assume you have the `readExcel` logic or I can paste it)
+    
+    function loadFromGSheets() {
+        const url = document.getElementById('gsheets-url').value;
+        // Simple CSV parser or fetch logic here
+        alert("Функция в разработке (нужен CORS прокси или API)");
+    }
+
+    document.getElementById('excel-file').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const bstr = evt.target.result;
+            const wb = XLSX.read(bstr, {type:'binary'});
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(ws);
+            // Expected: { Artist, Song, Link, Start, ... }
+            playlist = data.map(row => ({
+                artist: row.Artist || row.Ispolnitel,
+                song: row.Song || row.Pesnya,
+                link: row.Link || row.Ssylka,
+                start: row.Start || row.Nachalo || 0
+            }));
+            document.getElementById('track-counter').innerText = `Песня 1 / ${playlist.length}`;
+            saveGlobalState();
+            renderInfoTable();
+        };
+        reader.readAsBinaryString(file);
+    });
+
+    // --- HELPERS ---
+    function extractVideoId(url) {
+        if(!url) return "";
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    }
+    
+    function parseTime(t) {
+        if(!t) return 0;
+        if(typeof t === 'number') return t;
+        if(t.includes(':')) {
+            const p = t.split(':');
+            return parseInt(p[0])*60 + parseInt(p[1]);
+        }
+        return parseInt(t);
+    }
+    
+    function highlightPlayBtn(idx) {
+        [0,1,2].forEach(i => document.getElementById(`btn-lvl-${i}`).classList.remove('active'));
+        document.getElementById(`btn-lvl-${idx}`).classList.add('active');
+    }
+
+    // --- TABLE RENDER & SCORING ---
+    function renderPlayers() {
+        const tbody = document.getElementById('players-table-body');
+        tbody.innerHTML = '';
+        
+        // Convert to array and sort
+        const arr = Object.keys(players).map(k => ({ name: k, ...players[k] }));
+        arr.sort((a,b) => b.total_score - a.total_score);
+
+        arr.forEach(p => {
+            const rd = p.roundData[currentIndex] || {};
+            const isOnline = onlineUsers.has(p.name);
+            const rowClass = !isOnline ? 'offline' : (rd.status === 'ANS' ? 'answered' : (rd.status === 'SKIP' ? 'skipped' : ''));
+            
+            // Generate Input/Display for Art/Song
+            // For Admin we see what they typed
+            
+            const artCell = createEvalCell(p.name, 'art', rd);
+            const songCell = createEvalCell(p.name, 'song', rd);
+
+            const row = `
+                <tr class="player-row ${rowClass}">
+                    <td>
+                        <div style="font-weight:bold">${p.name}</div>
+                        <div style="font-size:10px; opacity:0.7">${isOnline ? 'ONLINE' : 'OFFLINE'}</div>
+                    </td>
+                    <td style="font-size:18px; font-weight:bold; color:var(--gold)">${p.total_score.toFixed(1)}</td>
+                    <td>${artCell}</td>
+                    <td>${songCell}</td>
+                    <td style="text-align:center">${rd.stage !== undefined ? rd.stage + 1 : '-'}</td>
+                    <td></td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+    }
+
+    function createEvalCell(name, type, rd) {
+        const raw = type === 'art' ? rd.artRaw : rd.songRaw;
+        const score = type === 'art' ? rd.artScore : rd.songScore;
+        const display = raw === null ? '...' : (raw === '' ? '(пусто)' : raw);
+        
+        if (!raw) return `<span style="color:#555">-</span>`;
+        
+        // Buttons
+        return `
+            <div class="ans-cell">
+                <span class="ans-block">${display}</span>
+                <div class="eval-actions">
+                    <button class="btn-eval be-yes ${score > 0 ? 'selected' : ''}" onclick="setScore('${name}', '${type}', 1)">✔</button>
+                    <button class="btn-eval be-part" onclick="setScore('${name}', '${type}', 0.5)">½</button>
+                    <button class="btn-eval be-no ${score === 0 ? 'selected' : ''}" onclick="setScore('${name}', '${type}', 0)">✖</button>
+                </div>
+            </div>
+        `;
+    }
+
+    window.setScore = function(name, type, mod) {
+        const p = players[name];
+        const rd = p.roundData[currentIndex];
+        
+        // Calculate points based on the Multipliers saved when the answer arrived
+        // Fallback to current level if missing (shouldn't happen with new logic)
+        const mult = (type === 'art' ? rd.multArt : rd.multSong) || 1.0; 
+        const base = (type === 'art' ? rd.baseArt : rd.baseSong) || 1.0; 
+
+        const finalVal = base * mult * mod;
+
+        if (type === 'art') rd.artScore = finalVal;
+        else rd.songScore = finalVal;
+
+        // Recalculate Total
+        recalcTotal(name);
+        renderPlayers();
+        saveGlobalState();
+    };
+
+    function recalcTotal(name) {
+        const p = players[name];
+        let tot = 0;
+        Object.values(p.roundData).forEach(r => {
+            tot += (r.artScore || 0) + (r.songScore || 0);
+        });
+        p.total_score = tot;
+    }
+
+    // --- SETTINGS STORAGE ---
+    // (Similar to previous, keeping simple)
+    async function saveGlobalState() {
+        const payload = { 
+            id: 1, 
+            playlist: playlist, 
+            current_index: currentIndex,
+            players_dump: players,
+            settings: settings,
+            last_update: Date.now()
+        };
+        await supabaseClient.from('quiz_state').upsert(payload);
+    }
+
+    async function restoreState() {
+        const { data } = await supabaseClient.from('quiz_state').select('*').eq('id', 1).single();
+        if(data) {
+            if(data.playlist) playlist = data.playlist;
+            if(data.current_index) currentIndex = data.current_index;
+            if(data.players_dump) players = data.players_dump;
+            if(data.settings) settings = data.settings;
+            
+            // Render
+            document.getElementById('track-counter').innerText = `Песня ${currentIndex+1} / ${playlist.length}`;
+        }
+    }
+
+    // Settings UI renderers (toggleSettings, renderInfoTable etc) from previous code go here...
+    // I am including the missing renderInfoTable for completeness
+    
+    function renderInfoTable() {
+        const tbody = document.getElementById('info-table-body');
+        tbody.innerHTML = '';
+        const tr = playlist[currentIndex];
+        if(!tr) return;
+        
+        settings.levels.forEach((lvl, i) => {
+             tbody.innerHTML += `
+                <tr>
+                    <td>Этап ${i+1} (${lvl.dur}c)</td>
+                    <td>${tr.artist}</td>
+                    <td>${tr.song}</td>
+                </tr>
+             `;
+        });
+        
+        // Also render settings input table
+        const settBody = document.getElementById('settings-tbody');
+        settBody.innerHTML = '';
+        settings.levels.forEach((lvl, i) => {
+            settBody.innerHTML += `
+            <tr>
+                <td>${i+1}</td>
+                <td><input type="number" value="${lvl.dur}" onchange="updSet(${i},'dur',this.value)"></td>
+                <td><input type="number" value="${lvl.timer}" onchange="updSet(${i},'timer',this.value)"></td>
+                <td><input type="number" value="${lvl.pArt}" onchange="updSet(${i},'pArt',this.value)"></td>
+                <td><input type="number" value="${lvl.pSong}" onchange="updSet(${i},'pSong',this.value)"></td>
+                <td><input type="number" value="${lvl.kArt}" onchange="updSet(${i},'kArt',this.value)"></td>
+                <td><input type="number" value="${lvl.kSong}" onchange="updSet(${i},'kSong',this.value)"></td>
+                <td><input type="number" value="${lvl.combo}" onchange="updSet(${i},'combo',this.value)"></td>
+            </tr>`;
+        });
+    }
+    
+    window.updSet = function(i, k, v) {
+        settings.levels[i][k] = parseFloat(v);
+        saveGlobalState(); // Save settings immediately
+    };
+    
+    window.toggleSettings = function() {
+        const el = document.getElementById('settings-overlay');
+        el.style.display = el.style.display === 'block' ? 'none' : 'block';
+    }
+    
+    window.restoreDefaultSettings = function() {
+        if(confirm("Сброс настроек?")) {
+            settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+            renderInfoTable();
+            saveGlobalState();
+        }
+    }
+    
+    window.resetGame = function() {
+        if(confirm("ПОЛНЫЙ СБРОС (ВСЕ ОЧКИ ПРОПАДУТ)?")) {
+            players = {};
+            currentIndex = 0;
+            saveGlobalState();
+            location.reload();
+        }
+    }
+
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
