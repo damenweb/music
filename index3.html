@@ -109,7 +109,8 @@
         <button class="btn-skip btn-logout" style="border:none; font-size:11px; margin-top:20px; color:#555" onclick="logout()">Выйти из аккаунта</button>
     </div>
 
-const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
+<script>
+    const S_URL = 'https://gatadttzyeusozvkwvai.supabase.co';
 const S_KEY = 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY';
 const supabaseClient = supabase.createClient(S_URL, S_KEY);
 
@@ -118,8 +119,8 @@ let localTimerId;
 let hasAnsweredThisSong = false;
 let autoSendCheck;
 
-// Состояние текущей игры (из БД)
-let gameState = {
+// Локальное состояние текущего раунда
+let currentGameState = {
     songIdx: -1,
     levelIdx: -1,
     levelTag: "ОЖИДАНИЕ"
@@ -160,41 +161,39 @@ async function showGameScreen() {
     document.getElementById('game-screen').classList.remove('hidden');
     document.getElementById('display-name').innerText = myLogin;
     
-    // Подключаемся к Presence
     supabaseClient.channel('quiz_chat').track({ user: myLogin });
     
-    // ВАЖНО: Загружаем текущее состояние игры сразу после входа/обновления
-    await syncWithServer();
+    // СИНХРОНИЗАЦИЯ ПРИ ЗАГРУЗКЕ
+    await syncInitialState();
 }
 
-async function syncWithServer() {
+async function syncInitialState() {
     const { data } = await supabaseClient.from('quiz_state').select('*').eq('id', 1).single();
     if (!data) return;
 
-    gameState.songIdx = data.current_index;
+    currentGameState.songIdx = data.current_index;
     document.getElementById('track-val').innerText = (data.current_index + 1) + "/" + (data.playlist ? data.playlist.length : "?");
 
-    // Проверяем, есть ли уже ответ игрока в текущей сессии
+    // Проверяем, отвечали ли мы уже в этом раунде
     if (data.scores && data.scores[myLogin]) {
         const rd = data.scores[myLogin].roundData;
         if (rd && rd.status !== 'WAIT' && rd.status !== 'SKIP_HINT') {
             hasAnsweredThisSong = true;
-            document.getElementById('status').innerText = "ВЫ УЖЕ ОТВЕТИЛИ";
+            document.getElementById('status').innerText = "ОТВЕТ УЖЕ ОТПРАВЛЕН";
+            document.getElementById('pArtist').value = rd.artAns || "";
+            document.getElementById('pSong').value = rd.songAns || "";
             toggleInputs(false);
-            if (rd.artAns) document.getElementById('pArtist').value = rd.artAns;
-            if (rd.songAns) document.getElementById('pSong').value = rd.songAns;
         }
     }
 }
 
 async function submit(type, msg) {
-    // Отправляем всё: сообщение, логин, индекс песни и индекс этапа
     await supabaseClient.from('quiz_chat').insert([{ 
-        player_name: `${gameState.levelTag} ${myLogin}`, // Для логов
-        player_login: myLogin, 
+        player_name: `${currentGameState.levelTag} ${myLogin}`,
+        player_login: myLogin,
         message: msg,
-        song_idx: gameState.songIdx,
-        level_idx: gameState.levelIdx
+        song_idx: currentGameState.songIdx,
+        level_idx: currentGameState.levelIdx
     }]);
     toggleInputs(false);
 }
@@ -212,90 +211,71 @@ async function send() {
 async function skipHint() {
     if (hasAnsweredThisSong) return;
     await submit("SKIP", "SKIP");
-    document.getElementById('status').innerText = "ОЖИДАНИЕ ПОДСКАЗКИ";
+    document.getElementById('status').innerText = "ОЖИДАНИЕ СЛЕД. ПОДСКАЗКИ";
     toggleInputs(false);
 }
 
 async function skipSong() {
     if (hasAnsweredThisSong) return;
-    if(confirm("Пропустить песню? (0 баллов)")) {
+    if(confirm("Пропустить песню?")) {
         hasAnsweredThisSong = true;
         await submit("SKIP_SONG", "SKIP_SONG");
-        document.getElementById('status').innerText = "ПЕСНЯ ПРОПУЩЕНА";
+        document.getElementById('status').innerText = "ПРОПУЩЕНО";
         toggleInputs(false);
     }
 }
 
 function toggleInputs(en) {
-    const locked = !en || hasAnsweredThisSong;
-    document.getElementById('sendBtn').disabled = locked;
-    document.getElementById('skipBtn').disabled = locked;
+    const isLocked = !en || hasAnsweredThisSong;
+    document.getElementById('sendBtn').disabled = isLocked;
+    document.getElementById('skipBtn').disabled = isLocked;
     document.getElementById('giveUpBtn').disabled = hasAnsweredThisSong;
     
     ['pArtist', 'pSong'].forEach(id => {
         const el = document.getElementById(id);
-        el.readOnly = locked;
-        el.style.opacity = (locked && !hasAnsweredThisSong) ? 0.5 : 1;
+        el.readOnly = isLocked;
+        el.style.opacity = isLocked ? 0.6 : 1;
     });
 }
 
-function logout() { localStorage.clear(); location.reload(); }
-
-// --- СЛУШАТЕЛИ BROADCAST ---
 const channel = supabaseClient.channel('quiz_chat');
-
 channel.on('broadcast', { event: 'sync_state' }, p => {
     const d = p.payload;
-    gameState.songIdx = d.songNum - 1;
-    gameState.levelIdx = d.activeLvlIdx;
-    gameState.levelTag = d.level;
+    
+    // Если песня сменилась — сброс
+    if (currentGameState.songIdx !== (d.songNum - 1)) {
+        hasAnsweredThisSong = false;
+        document.getElementById('pArtist').value = "";
+        document.getElementById('pSong').value = "";
+        document.getElementById('status').innerText = "НОВЫЙ ТРЕК";
+    }
 
-    document.getElementById('track-val').innerText = `${d.songNum}/${d.totalSongs || '?'}`;
+    currentGameState.songIdx = d.songNum - 1;
+    currentGameState.levelIdx = d.activeLvlIdx;
+    currentGameState.levelTag = d.level;
+
+    document.getElementById('track-val').innerText = `${d.songNum}/${d.totalSongs}`;
     document.getElementById('lvl-badge').innerText = d.level;
     
-    // Обновление таблицы баллов
-    if(d.allLevels) {
-        const tbody = document.getElementById('points-body');
-        tbody.innerHTML = '';
-        d.allLevels.forEach((l, idx) => {
-            const isCurrent = idx === d.activeLvlIdx;
-            tbody.innerHTML += `<tr>
-                <td class="${isCurrent?'highlight':''}">${idx+1}</td>
-                <td class="${isCurrent?'highlight':''}">${l.pArt} <span style="color:#555">(${(l.pArt*l.kArt).toFixed(1)})</span></td>
-                <td class="${isCurrent?'highlight':''}">${l.pSong} <span style="color:#555">(${(l.pSong*l.kSong).toFixed(1)})</span></td>
-            </tr>`;
-        });
-    }
-
-    // Если началась новая песня — сбрасываем локальные флаги
-    if (gameState.lastProcessedSong !== d.songNum) {
-        gameState.lastProcessedSong = d.songNum;
-        hasAnsweredThisSong = false;
-        document.getElementById('pArtist').value = ""; 
-        document.getElementById('pSong').value = "";
-        document.getElementById('status').innerText = "ГОТОВНОСТЬ";
-    }
     if (!hasAnsweredThisSong) toggleInputs(false);
 
 }).on('broadcast', { event: 'start_timer' }, p => {
     const sec = p.payload.sec;
     if (sec > 0) {
-        if (!hasAnsweredThisSong) { 
-            toggleInputs(true); 
-            document.getElementById('status').innerText = "ПРИЕМ ОТВЕТОВ"; 
+        if (!hasAnsweredThisSong) {
+            toggleInputs(true);
+            document.getElementById('status').innerText = "ПРИЕМ ОТВЕТОВ...";
         }
         let left = sec;
-        const el = document.getElementById('player-timer');
+        const timerEl = document.getElementById('player-timer');
         clearInterval(localTimerId);
         localTimerId = setInterval(() => {
-            left--; el.innerText = left < 10 ? '0'+left : left;
-            if(left <= 0) { 
-                clearInterval(localTimerId); 
-                if(!hasAnsweredThisSong && autoSendCheck.checked) send();
-                else if (!hasAnsweredThisSong) {
-                    toggleInputs(false);
-                    document.getElementById('status').innerText = "ВРЕМЯ ИСТЕКЛО";
-                }
+            left--;
+            timerEl.innerText = left < 10 ? '0'+left : left;
+            if (left <= 0) {
+                clearInterval(localTimerId);
+                if (!hasAnsweredThisSong && autoSendCheck.checked) send();
+                else if (!hasAnsweredThisSong) toggleInputs(false);
             }
         }, 1000);
     }
@@ -304,6 +284,9 @@ channel.on('broadcast', { event: 'sync_state' }, p => {
     clearInterval(localTimerId);
     document.getElementById('player-timer').innerText = "00";
     toggleInputs(false);
+}).on('broadcast', { event: 'game_paused' }, p => {
+    document.getElementById('pause-overlay').style.display = p.payload.paused ? 'flex' : 'none';
 }).subscribe();
+</script>
 </body>
 </html>
