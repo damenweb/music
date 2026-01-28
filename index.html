@@ -247,7 +247,7 @@
         document.getElementById('pause-overlay').style.display = p.payload.paused ? 'flex' : 'none';
     
     }).on('broadcast', { event: 'reveal_answer' }, p => {
-        document.getElementById('status').innerHTML = `Ответ: <br><span style="color:white">${p.payload.answer}</span>`;
+        document.getElementById('status').innerHTML = "";
         document.getElementById('lvl-badge').innerText = p.payload.answer;
         toggleInputs(false);
         
@@ -256,7 +256,7 @@
         if (sec > 0) {
             if (!hasAnsweredThisSong) { 
                 toggleInputs(true); 
-                document.getElementById('status').innerText = "ВРЕМЯ ПОШЛО! 🔥"; 
+                document.getElementById('status').innerText = "Скорее пиши ответ 🔥"; 
             } else {
                 document.getElementById('status').innerText = "Ждем остальных..."; 
             }
@@ -277,7 +277,7 @@
                             send(); // Вызываем существующую функцию отправки
                         } else {
                             toggleInputs(false);
-                            document.getElementById('status').innerText = "Время вышло...";
+                            document.getElementById('status').innerText = "";
                         }
                     }
                 }
