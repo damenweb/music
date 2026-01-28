@@ -289,7 +289,24 @@
         currentLvlIdx = d.activeLvlIdx; 
         
         // ... (отрисовка таблицы d.allLevels без изменений) ...
-
+        // Render Points Table
+        if(d.allLevels) {
+            const tbody = document.getElementById('points-body');
+            tbody.innerHTML = '';
+            d.allLevels.forEach((l, idx) => {
+                const isCurrent = idx === d.activeLvlIdx;
+                const artPart = (l.pArt * l.kArt).toFixed(2);
+                const sngPart = (l.pSong * l.kSong).toFixed(2);
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="${isCurrent?'highlight':''}">${idx+1}</td>
+                        <td class="${isCurrent?'highlight':''}">${l.pArt} <span style="color:#555">(${Number(artPart)})</span></td>
+                        <td class="${isCurrent?'highlight':''}">${l.pSong} <span style="color:#555">(${Number(sngPart)})</span></td>
+                    </tr>
+                `;
+            });
+        }
+        
         if (currentSongNum !== d.songNum) {
             currentSongNum = d.songNum; 
             hasAnsweredThisSong = false;
