@@ -245,12 +245,10 @@
 
     async function skipSong() {
         if (hasAnsweredThisSong) return;
-        if(confirm("Сдаться на этой песне? (0 баллов)")) {
-            hasAnsweredThisSong = true;
-            await submit("SKIP_SONG", "SKIP_SONG");
-            //document.getElementById('status').innerText = "🏳️ Откинься на спинку кресла и жди следующую песню 😎";
-            toggleInputs(false);
-        }
+        hasAnsweredThisSong = true;
+        await submit("SKIP_SONG", "SKIP_SONG");
+        //document.getElementById('status').innerText = "🏳️ Откинься на спинку кресла и жди следующую песню 😎";
+        toggleInputs(false);
     }
 
     async function submit(type, msg) {
