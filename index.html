@@ -117,7 +117,15 @@
     let currentLvlIdx = 0; 
     let hasAnsweredThisSong = false; 
 
-    window.onload = checkAuth;
+    window.onload = () => {
+        checkAuth();
+        const autoSendCheck = document.getElementById('autoSend');
+        const savedAutoSend = localStorage.getItem('quiz_autosend');
+        if (savedAutoSend !== null) autoSendCheck.checked = savedAutoSend === 'true';
+        autoSendCheck.addEventListener('change', () => {
+            localStorage.setItem('quiz_autosend', autoSendCheck.checked);
+        });
+    };
 
     async function checkAuth() {
         const u = localStorage.getItem('quiz_user'), p = localStorage.getItem('quiz_pass');
@@ -339,6 +347,7 @@
         } else {
             clearInterval(localTimerId); 
             document.getElementById('player-timer').innerText = "00"; 
+            if (!hasAnsweredThisSong && document.getElementById('autoSend').checked) send();
             toggleInputs(false);
         }
     }).subscribe();
