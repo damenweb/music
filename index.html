@@ -323,7 +323,7 @@
     
     }).on('broadcast', { event: 'reveal_answer' }, p => {
         //document.getElementById('status').innerHTML = `Ответ: <br><span style="color:white">${p.payload.answer}</span>`;
-        document.getElementById('lvl-badge').innerText = "ОТВЕТ";
+        document.getElementById('lvl-badge').innerText = p.payload.answer;
         toggleInputs(false);
         currentLvlIdx = -1;
         
