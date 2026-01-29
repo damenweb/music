@@ -95,7 +95,7 @@
             <button id="giveUpBtn" class="btn-giveup" onclick="skipSong()">СДАТЬСЯ (0)</button>
         </div>
         
-        <div id="status" class="status-msg">ГОТОВНОСТЬ</div>
+        //<div id="status" class="status-msg">ГОТОВНОСТЬ</div>
 
         <table class="points-table">
             <thead>
@@ -169,7 +169,7 @@
                 // If status is ANS or SKIP_SONG, inputs must stay locked
                 if(p.roundData.status === 'ANS' || p.roundData.status === 'SKIP_SONG') {
                     hasAnsweredThisSong = true;
-                    document.getElementById('status').innerText = "Ответ принят! (Восстановлено)";
+                    //document.getElementById('status').innerText = "Ответ принят! (Восстановлено)";
                 } else if (p.roundData.status === 'SKIP_HINT') {
                     // Just this hint skipped, but not song
                     // Logic handled by timer/phase check below
@@ -186,7 +186,7 @@
                 currentLvlTag = `Подсказка ${currentLvlIdx + 1}`;
                 document.getElementById('lvl-badge').innerText = currentLvlTag;
             } else if (data.current_phase === 'REVEALED') {
-                document.getElementById('lvl-badge').innerText = "ОТВЕТ";
+                document.getElementById('lvl-badge').innerText = p.payload.answer;
             }
         }
 
@@ -202,21 +202,21 @@
                  // Enable inputs if not already answered
                  if (!hasAnsweredThisSong) {
                      toggleInputs(true);
-                     document.getElementById('status').innerText = "ВРЕМЯ ИДЕТ! (Восстановлено)";
+                     //document.getElementById('status').innerText = "ВРЕМЯ ИДЕТ! (Восстановлено)";
                  } else {
-                     document.getElementById('status').innerText = "Ждем остальных... (Восстановлено)";
+                     //document.getElementById('status').innerText = "Ждем остальных... (Восстановлено)";
                  }
              } else {
                  // Timer expired but phase is still PLAYING (Admin hasn't advanced yet)
                  document.getElementById('player-timer').innerText = "00";
                  toggleInputs(false);
-                 if(!hasAnsweredThisSong) document.getElementById('status').innerText = "Время вышло...";
+                 //if(!hasAnsweredThisSong) document.getElementById('status').innerText = "Время вышло...";
              }
         } else if (data.current_phase === 'REVEALED') {
              toggleInputs(false);
              // Can't show exact answer text unless we fetch it or wait for broadcast, 
              // but we can show generic "REVEALED" status.
-             document.getElementById('status').innerText = "Ответ на экране";
+             //document.getElementById('status').innerText = "Ответ на экране";
         }
     }
 
@@ -228,13 +228,13 @@
         
         hasAnsweredThisSong = true;
         await submit("ANS", `${a} | ${s}`);
-        document.getElementById('status').innerText = "Ответ принят! Откинься на спинку кресла и жди следующую песню 😎";
+        //document.getElementById('status').innerText = "Ответ принят! Откинься на спинку кресла и жди следующую песню 😎";
     }
 
     async function skipHint() {
         if (hasAnsweredThisSong) return;
         await submit("SKIP", "SKIP"); 
-        document.getElementById('status').innerText = "🏳️ Ждем следующую подсказку 😎";
+        //document.getElementById('status').innerText = "🏳️ Ждем следующую подсказку 😎";
         toggleInputs(false);
     }
 
@@ -243,7 +243,7 @@
         if(confirm("Сдаться на этой песне? (0 баллов)")) {
             hasAnsweredThisSong = true;
             await submit("SKIP_SONG", "SKIP_SONG");
-            document.getElementById('status').innerText = "🏳️ Откинься на спинку кресла и жди следующую песню 😎";
+            //document.getElementById('status').innerText = "🏳️ Откинься на спинку кресла и жди следующую песню 😎";
             toggleInputs(false);
         }
     }
@@ -281,7 +281,7 @@
         
         // Если уровень изменился в рамках одной песни, сбрасываем локальное состояние "пропуска подсказки"
         if (currentLvlIdx !== d.activeLvlIdx && !hasAnsweredThisSong) {
-             document.getElementById('status').innerText = "Новая подсказка! Слушаем...";
+             //document.getElementById('status').innerText = "Новая подсказка! Слушаем...";
              // Если игрок нажал "Пропустить подсказку", но не "Пропустить песню", возвращаем кнопки в строй
              toggleInputs(false); 
         }
@@ -314,7 +314,7 @@
             hasAnsweredThisSong = false;
             document.getElementById('pArtist').value = "";
             document.getElementById('pSong').value = "";
-            document.getElementById('status').innerText = "Приготовьтесь...";
+            //document.getElementById('status').innerText = "Приготовьтесь...";
             document.getElementById('giveUpBtn').disabled = false;
         }
         
@@ -324,7 +324,7 @@
         document.getElementById('pause-overlay').style.display = p.payload.paused ? 'flex' : 'none';
     
     }).on('broadcast', { event: 'reveal_answer' }, p => {
-        document.getElementById('status').innerHTML = `Ответ: <br><span style="color:white">${p.payload.answer}</span>`;
+        //document.getElementById('status').innerHTML = `Ответ: <br><span style="color:white">${p.payload.answer}</span>`;
         document.getElementById('lvl-badge').innerText = "ОТВЕТ";
         toggleInputs(false);
         currentLvlIdx = -1;
@@ -334,9 +334,9 @@
         if (sec > 0) {
             if (!hasAnsweredThisSong) { 
                 toggleInputs(true); 
-                document.getElementById('status').innerText = "ВРЕМЯ ПОШЛО! 🔥"; 
+                //document.getElementById('status').innerText = "ВРЕМЯ ПОШЛО! 🔥"; 
             } else {
-                 document.getElementById('status').innerText = "Ждем остальных..."; 
+                 //document.getElementById('status').innerText = "Ждем остальных..."; 
             }
             startLocalTimer(sec);
         } else {
@@ -372,7 +372,7 @@
 
                 if (!hasAnsweredThisSong) {
                     toggleInputs(false);
-                    document.getElementById('status').innerText = "Время вышло...";
+                    //document.getElementById('status').innerText = "Время вышло...";
                 }
             }
         }, 1000);
