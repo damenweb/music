@@ -363,7 +363,8 @@
             el.innerText = left < 10 ? '0'+left : left;
             if(left <= 0) { 
                 clearInterval(localTimerId); 
-                
+
+                console.log(currentLvlIdx + ' ' + hasAnsweredThisSong);
                 // АВТООТПРАВКА: Если это третья подсказка и игрок что-то ввел
                 if(!hasAnsweredThisSong && currentLvlIdx === 2) {
                         const a = document.getElementById('pArtist').value.trim();
