@@ -67,34 +67,45 @@
 
     <div id="auth-screen" class="box">
         <h2 style="color:var(--accent)">QUIZ LOGIN</h2>
-        <input type="text" id="username" placeholder="Логин">
-        <input type="password" id="password" placeholder="Пароль">
+        <input type="text" id="username" placeholder="ЛОГИН">
+        <input type="password" id="password" placeholder="ПАРОЛЬ">
         <button onclick="tryLogin()">Войти</button>
     </div>
 
     <div id="game-screen" class="box hidden">
-        <div id="pause-overlay"><h1 style="color: #ffeb3b">ПАУЗА</h1></div>
+        <div id="pause-overlay"><h1>ПАУЗА</h1></div>
+        
         <div class="info-bar">
-            <div>TRACK: <span id="track-val">--</span></div>
-            <div id="display-name" style="color: var(--accent);"></div>
+            <div>TRACK: <span id="track-val" style="color:white; font-weight: bold;">--</span></div>
+            <div class="user-section">
+                <span id="display-name" style="color: var(--accent); font-weight: bold;"></span>
+                <button class="btn-logout" onclick="logout()">ВЫХОД</button>
+            </div>
         </div>
 
         <div id="lvl-badge" class="lvl-badge">ОЖИДАНИЕ</div>
         <div id="player-timer">00</div>
         
         <p style="font-size:12px; color:#777; margin: 0 0 15px 0;">
-            У вас лишь 1 попытка на раунд дать ответ
+            Один ответ на песню. Выбирай момент с умом.
         </p>
 
-        <input type="text" maxlength="50" 
-            id="pArtist" placeholder="Исполнитель / исполнители">
-        <input type="text" maxlength="50" id="pSong" placeholder="Название песни">
+        <input type="text" maxlength="50" id="pArtist" placeholder="ИСПОЛНИТЕЛЬ / ИСПОЛНИТЕЛИ" autocomplete="off">
+        <input type="text" maxlength="50" id="pSong" placeholder="НАЗВАНИЕ ПЕСНИ" autocomplete="off">
         
-        <button id="sendBtn" onclick="send()" disabled>ОТПРАВИТЬ ОТВЕТ</button>
-        <button id="skipBtn" class="btn-skip" onclick="skipHint()" disabled>Пропустить подсказку</button>
-        <button id="giveUpBtn" class="btn-skip btn-giveup" onclick="skipSong()" disabled>Пропустить песню целиком</button>
+        <div style="margin: 10px 0; font-size: 11px; color: #888; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="autoSend" style="width: auto; margin: 0; cursor: pointer;">
+            <label for="autoSend" style="cursor: pointer;">Отправить автоматически при 00:00</label>
+        </div>
         
-        <div id="status" class="status-msg">Ждем начала...</div>
+        <button id="sendBtn" onclick="send()">ОТПРАВИТЬ ОТВЕТ</button>
+        
+        <div class="button-group">
+            <button id="skipBtn" class="btn-skip" onclick="skipHint()">СЛЕД. ПОДСКАЗКА</button>
+            <button id="giveUpBtn" class="btn-giveup" onclick="skipSong()">СДАТЬСЯ (0)</button>
+        </div>
+        
+        <div id="status" class="status-msg">ГОТОВНОСТЬ</div>
 
         <table class="points-table">
             <thead>
