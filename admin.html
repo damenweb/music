@@ -422,7 +422,17 @@
         activeLevel = lvl;
         currentPhase = 'PRELOAD';
         updateStatus("ЗАГРУЗКА...");
-        
+        // --- НОВЫЙ БЛОК: Сброс статуса SKIP_HINT ---
+        Object.keys(players).forEach(login => {
+            const rd = players[login].roundData;
+            // Если игрок просто пропустил предыдущую подсказку,
+            // возвращаем его в режим ожидания для новой подсказки.
+            if (rd.status === 'SKIP_HINT') {
+                rd.status = 'WAIT';
+            }
+        });
+        renderTable(); // Обновляем таблицу, чтобы визуально убрать серый фон у игроков
+        // ------------------------------------------
         highlightLevelBtn(lvl);
         
         const row = playlist[currentIndex];
