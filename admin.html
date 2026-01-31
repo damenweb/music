@@ -332,9 +332,10 @@
     let sortedPlayerLogins = []; // Fixed order for the current round
     
     const DEFAULT_SETTINGS = [
-        { dur: 1.0, timer: 23, pArt: 40, pSong: 60, kArt: 0.75, kSong: 0.75, combo: 0 },
-        { dur: 4.0, timer: 20, pArt: 24, pSong: 36, kArt: 0.75, kSong: 0.75, combo: 0 },
-        { dur: 12.0, timer: 13, pArt: 15, pSong: 15, kArt: 0.5, kSong: 0.5, combo: 0 }
+        // Добавлены kArt2 и kSong2 (по умолчанию 0.25)
+        { dur: 1.5, timer: 23, pArt: 40, pSong: 60, kArt: 0.75, kArt2: 0.25, kSong: 0.75, kSong2: 0.25, combo: 0 },
+        { dur: 4.5, timer: 20, pArt: 24, pSong: 36, kArt: 0.75, kArt2: 0.25, kSong: 0.75, kSong2: 0.25, combo: 0 },
+        { dur: 12.0, timer: 13, pArt: 15, pSong: 15, kArt: 0.5, kArt2: 0.25, kSong: 0.5, kSong2: 0.25, combo: 0 }
     ];
     let settings = { levels: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) };
 
@@ -818,24 +819,26 @@
             const currentRoundTotal = as + ss + comboBonus;
             const displayScore = Number((p.totalScore + currentRoundTotal).toFixed(2));
             // Generate Buttons
-            const genBtns = (type, maxPts, kPts) => {
+            const genBtns = (type, maxPts, k1, k2) => {
                 if (!showContent) return '';
                 const currentVal = type === 'art' ? as : ss;
-                const isFull = currentVal === maxPts;
-                const isPart = currentVal === Number((maxPts*kPts).toFixed(2));
                 
+                const valFull = Number(maxPts.toFixed(2));
+                const valK1 = Number((maxPts * k1).toFixed(2));
+                const valK2 = Number((maxPts * (k2 || 0)).toFixed(2));
+            
                 return `
-                <div class="eval-actions">
-                    <button class="btn-eval be-yes ${isFull?'selected':''}" onclick="setScore('${login}', '${type}', ${maxPts})">+${Number(maxPts.toFixed(2))}</button>
-                    <button class="btn-eval be-part ${isPart?'selected':''}" onclick="setScore('${login}', '${type}', ${(maxPts*kPts).toFixed(2)})">+${Number((maxPts*kPts).toFixed(2))}</button>
-                    <button class="btn-eval be-undo" onclick="setScore('${login}', 
-                '${type}', 0)">СБРОС</button>
+                <div class="eval-actions" style="flex-wrap: wrap;">
+                    <button class="btn-eval be-yes ${currentVal === valFull ? 'selected' : ''}" onclick="setScore('${login}', '${type}', ${valFull})">+${valFull}</button>
+                    <button class="btn-eval be-part ${currentVal === valK1 ? 'selected' : ''}" onclick="setScore('${login}', '${type}', ${valK1})">K1</button>
+                    <button class="btn-eval be-part ${currentVal === valK2 ? 'selected' : ''}" style="background:#ce93d8" onclick="setScore('${login}', '${type}', ${valK2})">K2</button>
+                    <button class="btn-eval be-undo" onclick="setScore('${login}', '${type}', 0)">0</button>
                 </div>`;
             };
             const artHtml = `<div class="ans-block ${!showContent && rd.status==='ANS' ? 'hidden-text' : ''}">${rd.artAns ||
-            (rd.status.includes('SKIP') ? 'SKIP' : '---')}</div>` + genBtns('art', cfg.pArt, cfg.kArt);
+            (rd.status.includes('SKIP') ? 'SKIP' : '---')}</div>` + genBtns('art', cfg.pArt, cfg.kArt, cfg.kArt2);
             const sngHtml = `<div class="ans-block ${!showContent && rd.status==='ANS' ? 'hidden-text' : ''}">${rd.songAns ||
-            (rd.status.includes('SKIP') ? 'SKIP' : '---')}</div>` + genBtns('song', cfg.pSong, cfg.kSong);
+            (rd.status.includes('SKIP') ? 'SKIP' : '---')}</div>` + genBtns('song', cfg.pSong, cfg.kSong, cfg.kSong2);
 
             tr.innerHTML = `
                 <td align=center><b>${login}</b> <small style="color:${isOnline?'#2e7d32':'#555'}">●</small></td>
@@ -894,9 +897,11 @@
                 <td><input type="number" value="${lvl.timer}" onchange="updateSet(${i},'timer',this.value)"></td>
              
                 <td><input type="number" value="${lvl.pArt}" onchange="updateSet(${i},'pArt',this.value)"></td>
-                <td><input type="number" value="${lvl.pSong}" onchange="updateSet(${i},'pSong',this.value)"></td>
                 <td><input type="number" step="0.1" value="${lvl.kArt}" onchange="updateSet(${i},'kArt',this.value)"></td>
+                <td><input type="number" step="0.1" value="${lvl.kArt2}" onchange="updateSet(${i},'kArt2',this.value)"></td>
+                <td><input type="number" value="${lvl.pSong}" onchange="updateSet(${i},'pSong',this.value)"></td>
                 <td><input type="number" step="0.1" value="${lvl.kSong}" onchange="updateSet(${i},'kSong',this.value)"></td>
+                <td><input type="number" step="0.1" value="${lvl.kSong2}" onchange="updateSet(${i},'kSong2',this.value)"></td>
                 <td><input type="number" value="${lvl.combo}" onchange="updateSet(${i},'combo',this.value)"></td>
             </tr>`;
     
@@ -908,14 +913,16 @@
         const tbody = document.getElementById('info-table-body');
         tbody.innerHTML = '';
         settings.levels.forEach((lvl, i) => {
-            const artPart = (lvl.pArt * lvl.kArt).toFixed(2);
-            const songPart = (lvl.pSong * lvl.kSong).toFixed(2);
+            const art1 = (lvl.pArt * lvl.kArt).toFixed(1);
+            const art2 = (lvl.pArt * (lvl.kArt2 || 0)).toFixed(1);
+            const sng1 = (lvl.pSong * lvl.kSong).toFixed(1);
+            const sng2 = (lvl.pSong * (lvl.kSong2 || 0)).toFixed(1);
+            
             tbody.innerHTML += `
                 <tr>
                     <td align=center>${i+1}</td>
-         
-                    <td align=center style="color:var(--gold)">${lvl.pArt} <span style="color:#777">(${Number(artPart)})</span></td>
-                    <td align=center style="color:var(--gold)">${lvl.pSong} <span style="color:#777">(${Number(songPart)})</span></td>
+                    <td align=center style="color:var(--gold)">${lvl.pArt} <br><small>(${Number(art1)} | ${Number(art2)})</small></td>
+                    <td align=center style="color:var(--gold)">${lvl.pSong} <br><small>(${Number(sng1)} | ${Number(sng2)})</small></td>
                     <td align=center style="color:var(--gold)">${lvl.combo}</td>
                 </tr>
             `;
