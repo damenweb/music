@@ -443,7 +443,7 @@
         // Send settings for this level to players
         const cfg = settings.levels[lvl];
         const levelsInfo = settings.levels.map(l => ({ 
-            pArt: l.pArt, pSong: l.pSong, kArt: l.kArt, kSong: l.kSong, combo: l.combo 
+            pArt: l.pArt, pSong: l.pSong, kSong: l.kSong, kSong2: l.kSong2, pArt: l.pArt, kArt: l.kArt, kArt2: l.kArt2, combo: l.combo 
         }));
         await supabaseClient.channel('quiz_chat').send({ 
             type: 'broadcast', event: 'sync_state', 
