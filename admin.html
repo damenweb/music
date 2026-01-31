@@ -503,6 +503,7 @@
     // Logic for auto-advancing
     function checkAutoProgress(timerExpired) {
         const pKeys = Object.keys(players).filter(k => onlineUsers.has(k));
+        console.log(pKeys);
         const totalOnline = pKeys.length;
 
         if (totalOnline === 0) {
