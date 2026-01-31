@@ -372,12 +372,7 @@
                 //console.log(currentLvlIdx + ' ' + hasAnsweredThisSong);
                 // АВТООТПРАВКА: Если это третья подсказка и игрок что-то ввел
                 if(!hasAnsweredThisSong && currentLvlIdx === 2) {
-                        const a = document.getElementById('pArtist').value.trim();
-                        const s = document.getElementById('pSong').value.trim();
-                        if(a !== "" || s !== "") {
-                            send();
-                            return;
-                        }
+                    send();
                 }
 
                 if (!hasAnsweredThisSong) {
