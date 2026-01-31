@@ -496,8 +496,11 @@
     function handleTimerEnd() {
         broadcastTimer(0, "");
         timerEndTimestamp = 0; // Reset
-        saveGlobalState(); 
-        checkAutoProgress(true);
+        console.log('stage 2_1');
+        setTimeout(() => {saveGlobalState(); checkAutoProgress(true);}, 2000);
+        console.log('stage 2_2');
+        //saveGlobalState(); 
+        //checkAutoProgress(true);
     }
 
     // Logic for auto-advancing
@@ -780,8 +783,8 @@
         }
 
         renderTable();
-        console.log('AHAHAH');
-        setTimeout(() => checkAutoProgress(false), 2000);
+        console.log('stage 3');
+        checkAutoProgress(false);
     }
 
     // --- TABLE RENDER & SCORING ---
