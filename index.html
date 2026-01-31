@@ -291,8 +291,8 @@
 
         currentLvlTag = d.level;
         currentLvlIdx = d.activeLvlIdx; 
-        console.log(currentLvlIdx);
-        if(currentLvlIdx)
+        
+        if(currentLvlIdx === 2)
             document.getElementById('skipBtn').disabled = true;
         
         // ... (отрисовка таблицы d.allLevels без изменений) ...
