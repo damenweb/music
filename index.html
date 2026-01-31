@@ -353,9 +353,7 @@
         } else {
             clearInterval(localTimerId); 
             document.getElementById('player-timer').innerText = "00";
-            console.log("DAAAAAA" + currentLvlIdx);
-            if(currentLvlIdx === 2)
-                document.getElementById('skipBtn').disabled = true;
+            
             if (!hasAnsweredThisSong && document.getElementById('autoSend').checked)
                 send();
             if(!hasAnsweredThisSong && currentLvlIdx === 2)
