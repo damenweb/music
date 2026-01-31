@@ -231,10 +231,12 @@
         if (hasAnsweredThisSong) return;
         const a = document.getElementById('pArtist').value.trim();
         const s = document.getElementById('pSong').value.trim();
+        console.log("etap 1");
         if(!a && !s) return;
-        
+        console.log("etap 2");
         hasAnsweredThisSong = true;
         await submit("ANS", `${a} | ${s}`);
+        console.log("etap 3");
         //document.getElementById('status').innerText = "Ответ принят! Откинься на спинку кресла и жди следующую песню 😎";
     }
 
