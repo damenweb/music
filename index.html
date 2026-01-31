@@ -281,7 +281,6 @@
         const d = p.payload;
         document.getElementById('track-val').innerText = `${d.songNum}/${d.totalSongs || '?'}`;
         document.getElementById('lvl-badge').innerText = d.level;
-        document.getElementById('skipBtn').disabled = true;
         
         // Если уровень изменился в рамках одной песни, сбрасываем локальное состояние "пропуска подсказки"
         if (currentLvlIdx !== d.activeLvlIdx && !hasAnsweredThisSong) {
@@ -292,6 +291,9 @@
 
         currentLvlTag = d.level;
         currentLvlIdx = d.activeLvlIdx; 
+        console(currentLvlIdx);
+                //if(idx === 2)
+                //    document.getElementById('skipBtn').disabled = true;
         
         // ... (отрисовка таблицы d.allLevels без изменений) ...
         // Render Points Table
@@ -300,6 +302,7 @@
             tbody.innerHTML = '';
             d.allLevels.forEach((l, idx) => {
                 const isCurrent = idx === d.activeLvlIdx;
+
                 const art1 = (l.pArt * l.kArt).toFixed(2);
                 const art2 = (l.pArt * l.kArt2).toFixed(2);
                 const sng1 = (l.pSong * l.kSong).toFixed(2);
