@@ -348,13 +348,13 @@
             startLocalTimer(sec);
         } else {
             clearInterval(localTimerId); 
-            document.getElementById('player-timer').innerText = "00"; 
-            if (!hasAnsweredThisSong && document.getElementById('autoSend').checked) send();
-            toggleInputs(false);
-            if(!hasAnsweredThisSong && currentLvlIdx === 2) {
+            document.getElementById('player-timer').innerText = "00";
+            console.log(currentLvlIdx);
+            if (!hasAnsweredThisSong && document.getElementById('autoSend').checked)
                 send();
-                toggleInputs(false);
-            }
+            if(!hasAnsweredThisSong && currentLvlIdx === 2)
+                send();
+            toggleInputs(false);
         }
     }).subscribe();
 
