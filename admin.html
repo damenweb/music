@@ -497,7 +497,7 @@
         broadcastTimer(0, "");
         timerEndTimestamp = 0; // Reset
         console.log('stage 2_1');
-        setTimeout(() => {saveGlobalState(); checkAutoProgress(true);}, 2000);
+        setTimeout(() => {saveGlobalState(); checkAutoProgress(true);}, 500);
         console.log('stage 2_2');
         //saveGlobalState(); 
         //checkAutoProgress(true);
@@ -550,7 +550,7 @@
             stopLogic();
             console.log('VOT TUT');
             // Задержка в 500мс, чтобы Supabase успел обработать статусы и игроки увидели переход
-            setTimeout(() => startLevelSequence(activeLevel + 1), 2500);
+            setTimeout(() => startLevelSequence(activeLevel + 1), 500);
         } else {
             forceReveal();
         }
