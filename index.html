@@ -281,6 +281,7 @@
         const d = p.payload;
         document.getElementById('track-val').innerText = `${d.songNum}/${d.totalSongs || '?'}`;
         document.getElementById('lvl-badge').innerText = d.level;
+        document.getElementById('skipBtn').disabled = locked;
         
         // Если уровень изменился в рамках одной песни, сбрасываем локальное состояние "пропуска подсказки"
         if (currentLvlIdx !== d.activeLvlIdx && !hasAnsweredThisSong) {
