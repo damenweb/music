@@ -98,7 +98,7 @@
 
         <table class="points-table">
             <thead>
-                <tr><th>#</th><th>Артист (неточно)</th><th>Песня (неточно)</th><th>Комбо</th></tr>
+                <tr><th>#</th><th>Артист</th><th>Песня</th><th>Комбо</th></tr>
             </thead>
             <tbody id="points-body">
                 <tr><td colspan="4" style="color:#555">Данные загружаются...</td></tr>
@@ -299,13 +299,15 @@
             tbody.innerHTML = '';
             d.allLevels.forEach((l, idx) => {
                 const isCurrent = idx === d.activeLvlIdx;
-                const artPart = (l.pArt * l.kArt).toFixed(2);
-                const sngPart = (l.pSong * l.kSong).toFixed(2);
+                const art1 = (lvl.pArt * lvl.kArt).toFixed(2);
+                const art2 = (lvl.pArt * (lvl.kArt2 || 0)).toFixed(2);
+                const sng1 = (lvl.pSong * lvl.kSong).toFixed(2);
+                const sng2 = (lvl.pSong * (lvl.kSong2 || 0)).toFixed(2);
                 tbody.innerHTML += `
                     <tr>
                         <td class="${isCurrent?'highlight':''}">${idx+1}</td>
-                        <td class="${isCurrent?'highlight':''}">${l.pArt} <span style="color:#555">(${Number(artPart)})</span></td>
-                        <td class="${isCurrent?'highlight':''}">${l.pSong} <span style="color:#555">(${Number(sngPart)})</span></td>
+                        <td class="${isCurrent?'highlight':''}">${l.pArt}<br><span style="color:#555">(${Number(art1)} | ${Number(art2)})</span></td>
+                        <td class="${isCurrent?'highlight':''}">${l.pSong}<br><span style="color:#555">(${Number(sng1)} | ${Number(sng2)})</span></td>
                         <td class="${isCurrent?'highlight':''}">${l.combo}</td>
                     </tr>
                 `;
