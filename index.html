@@ -291,9 +291,9 @@
 
         currentLvlTag = d.level;
         currentLvlIdx = d.activeLvlIdx; 
-        console(currentLvlIdx);
-                //if(idx === 2)
-                //    document.getElementById('skipBtn').disabled = true;
+        console.log(currentLvlIdx);
+        if(currentLvlIdx)
+            document.getElementById('skipBtn').disabled = true;
         
         // ... (отрисовка таблицы d.allLevels без изменений) ...
         // Render Points Table
