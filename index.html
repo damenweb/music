@@ -291,9 +291,10 @@
 
         currentLvlTag = d.level;
         currentLvlIdx = d.activeLvlIdx; 
-        
-        //if(currentLvlIdx === 2)
-        //    document.getElementById('skipBtn').disabled = true;
+
+        console.log("DA" + currentLvlIdx);
+        if(currentLvlIdx === 2)
+            document.getElementById('skipBtn').disabled = true;
         
         // ... (отрисовка таблицы d.allLevels без изменений) ...
         // Render Points Table
@@ -352,6 +353,7 @@
         } else {
             clearInterval(localTimerId); 
             document.getElementById('player-timer').innerText = "00";
+            console.log("DAAAAAA" + currentLvlIdx);
             if(currentLvlIdx === 2)
                 document.getElementById('skipBtn').disabled = true;
             if (!hasAnsweredThisSong && document.getElementById('autoSend').checked)
