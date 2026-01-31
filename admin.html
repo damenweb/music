@@ -504,6 +504,7 @@
     function checkAutoProgress(timerExpired) {
         const pKeys = Object.keys(players).filter(k => onlineUsers.has(k));
         console.log(pKeys);
+        console.log(sortedPlayerLogins);
         const totalOnline = pKeys.length;
 
         if (totalOnline === 0) {
