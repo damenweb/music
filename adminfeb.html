@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin • Quiz Pro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f0f13; --panel: #1a1a20; --border: #2a2a35;
+            --accent: #3b82f6; --accent-hover: #2563eb;
+            --gold: #eab308; --success: #22c55e; --danger: #ef4444; --text: #f3f4f6; --muted: #9ca3af;
+        }
+        * { box-sizing: border-box; outline: none; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* Layout */
+        header { height: 60px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 15px; justify-content: space-between; }
+        .main-area { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 340px; background: #131318; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; gap: 20px; overflow-y: auto; }
+        .content { flex: 1; display: flex; flex-direction: column; background: var(--bg); overflow: hidden; }
+
+        /* Typography & Common */
+        h1, h2, h3 { margin: 0; }
+        .btn { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; }
+        .btn:hover { background: #272730; border-color: #444; }
+        .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-danger { color: var(--danger); border-color: #552222; background: #2a1515; }
+        .btn-danger:hover { background: #451a1a; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        
+        /* Header Controls */
+        .header-group { display: flex; gap: 10px; align-items: center; }
+        input[type="text"], input[type="password"] { background: #000; border: 1px solid var(--border); color: white; padding: 8px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; }
+
+        /* Dashboard (Top of Content) */
+        .dashboard { height: 120px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 40px; justify-content: space-between; background: #111; }
+        .status-badge { font-size: 32px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); transition: color 0.3s; }
+        .status-badge.active { color: var(--accent); text-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
+        .status-badge.reveal { color: var(--gold); text-shadow: 0 0 20px rgba(234, 179, 8, 0.4); }
+        
+        /* Timer */
+        .timer-box { position: relative; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; }
+        .timer-val { font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: bold; z-index: 2; }
+        svg.timer-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+        circle { fill: none; stroke-width: 6; stroke: #333; }
+        .timer-progress { stroke: var(--accent); stroke-dasharray: 226; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
+
+        /* Play Controls (Sidebar) */
+        .stage-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .btn-stage { aspect-ratio: 1; border-radius: 12px; border: 2px solid var(--border); background: #1e1e24; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
+        .btn-stage span:first-child { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+        .btn-stage span:last-child { font-size: 24px; font-weight: 800; }
+        .btn-stage:hover { border-color: var(--accent); }
+        .btn-stage.active { border-color: var(--accent); background: rgba(59, 130, 246, 0.1); box-shadow: 0 0 15px rgba(59,130,246,0.2); }
+        .btn-stage.done { border-color: var(--success); opacity: 0.5; }
+
+        .nav-controls { display: flex; gap: 10px; margin-top: 10px; }
+        .nav-controls button { flex: 1; padding: 12px; }
+
+        /* Players Table */
+        .table-wrapper { overflow-y: auto; flex: 1; padding: 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { position: sticky; top: 0; background: #202025; padding: 12px; text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid var(--border); z-index: 10; }
+        td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        tr:hover td { background: #1f1f25; }
+        
+        .user-row.offline { opacity: 0.4; filter: grayscale(1); }
+        .user-row.answered { background: rgba(34, 197, 94, 0.05); }
+        .user-row.skipped-hint { background: rgba(255, 255, 255, 0.03); }
+        .user-row.skipped-song { background: rgba(239, 68, 68, 0.1); }
+
+        .score-input { background: transparent; border: 1px solid #444; color: var(--gold); font-weight: bold; width: 60px; text-align: center; padding: 4px; border-radius: 4px; }
+        
+        .ans-box { background: #2a2a35; padding: 6px 10px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px; min-height: 28px; display: flex; align-items: center; justify-content: space-between; }
+        .ans-box.hidden span { filter: blur(4px); user-select: none; opacity: 0.7; }
+        .ans-box .actions { display: flex; gap: 4px; margin-left: 10px; opacity: 0.3; transition: opacity 0.2s; }
+        .ans-box:hover .actions { opacity: 1; }
+        .mini-btn { width: 20px; height: 20px; border: none; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: #000; }
+        
+        /* Login Overlay */
+        #login-overlay { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .login-card { background: var(--panel); padding: 40px; border-radius: 12px; border: 1px solid var(--border); width: 300px; text-align: center; }
+        
+        /* Utils */
+        .hidden { display: none !important; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        #yt-player { position: absolute; top: -9999px; } 
+    </style>
+</head>
+<body>
+
+<div id="login-overlay">
+    <div class="login-card">
+        <h2 style="color: var(--accent); margin-bottom: 20px;">QUIZ ADMIN</h2>
+        <input type="password" id="admin-pass" placeholder="Пароль администратора" style="width: 100%; margin-bottom: 15px; text-align: center;">
+        <button class="btn btn-primary" onclick="Auth.login()" style="width: 100%;">ВОЙТИ</button>
+    </div>
+</div>
+
+<header>
+    <div class="header-group">
+        <button class="btn" onclick="document.getElementById('file-in').click()">📁 Загрузить Excel</button>
+        <input type="file" id="file-in" hidden accept=".xlsx, .xls">
+        <div style="width: 1px; height: 20px; background: var(--border); margin: 0 10px;"></div>
+        <span class="mono" id="track-info" style="color: var(--muted);">NO TRACK</span>
+    </div>
+    <div class="header-group">
+        <button class="btn" id="btn-pause" onclick="Game.togglePause()">⏸ ПАУЗА</button>
+        <button class="btn btn-danger" onclick="Game.resetAll()">RESET</button>
+    </div>
+</header>
+
+<div class="main-area">
+    <div class="sidebar">
+        <div class="stage-grid">
+            <div id="btn-s1" class="btn-stage" onclick="Game.playStage(0)"><span>10-25s</span><span>1</span></div>
+            <div id="btn-s2" class="btn-stage" onclick="Game.playStage(1)"><span>4-20s</span><span>2</span></div>
+            <div id="btn-s3" class="btn-stage" onclick="Game.playStage(2)"><span>0-15s</span><span>3</span></div>
+        </div>
+
+        <div class="nav-controls">
+            <button class="btn" onclick="Game.changeTrack(-1)">⏮ Пред</button>
+            <button class="btn btn-primary" onclick="Game.reveal()">ОТВЕТ</button>
+            <button class="btn" onclick="Game.changeTrack(1)">След ⏭</button>
+        </div>
+
+        <div style="background: #111; padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 11px; color: var(--muted); margin-bottom: 5px;">ТЕКУЩИЙ ТРЕК</div>
+            <div id="info-artist" style="font-weight: bold; color: white; margin-bottom: 4px;">???</div>
+            <div id="info-song" style="color: var(--accent);">???</div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="dashboard">
+            <div>
+                <div style="font-size: 12px; color: var(--muted); text-transform: uppercase;">Статус игры</div>
+                <div id="status-text" class="status-badge">ОЖИДАНИЕ</div>
+            </div>
+            
+            <div class="timer-box">
+                <svg class="timer-svg"><circle class="timer-progress" id="timer-ring" cx="40" cy="40" r="36"></circle></svg>
+                <div id="timer-val" class="timer-val">00</div>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table id="players-table">
+                <thead>
+                    <tr>
+                        <th style="width: 250px;">Игрок</th>
+                        <th style="width: 100px; text-align: center;">Очки</th>
+                        <th>Ответ: Артист</th>
+                        <th>Ответ: Песня</th>
+                        <th style="width: 50px;">Ур.</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="yt-player"></div>
+
+<script>
+  
+
+/**
+ * SENIOR DEV REFACTOR: QUIZ ADMIN
+ * Key Principles:
+ * 1. Single Source of Truth (Admin State)
+ * 2. Supabase Presence for Online/Offline
+ * 3. Robust Timer (Timestamp based, not Interval count)
+ * 4. Separation of Data (Store) and UI (Renderer)
+ */
+
+// --- CONFIGURATION ---
+const CFG = {
+    url: 'https://gatadttzyeusozvkwvai.supabase.co',
+    key: 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY', // Твой ключ
+    channel: 'quiz_chat',
+    // Настройки уровней (Defaults)
+    levels: [
+        { dur: 1.0, timer: 25, pArt: 40, pSong: 60, kArt: 0.75, kSong: 0.75, combo: 0 },
+        { dur: 4.0, timer: 20, pArt: 24, pSong: 36, kArt: 0.75, kSong: 0.75, combo: 0 },
+        { dur: 12.0, timer: 15, pArt: 15, pSong: 15, kArt: 0.5, kSong: 0.5, combo: 0 }
+    ]
+};
+
+const supabaseClient = supabase.createClient(CFG.url, CFG.key);
+
+// --- GLOBAL STATE STORE ---
+const Store = {
+    playlist: [],
+    trackIdx: 0,
+    
+    // Game Status
+    phase: 'IDLE', // IDLE, PLAYING, REVEALED
+    activeStage: -1, // 0, 1, 2
+    
+    // Timer
+    timerEndTs: 0,
+    isPaused: false,
+    
+    // Data
+    players: {}, // { login: { score, totalScore, lastSeen, round: { art, song, stage, status } } }
+    onlineUsers: new Set(),
+};
+
+// --- AUTH MODULE ---
+const Auth = {
+    async login() {
+        const pass = document.getElementById('admin-pass').value;
+        const { data } = await supabaseClient.from('quiz_users')
+            .select('password').eq('username', 'admin').single();
+        
+        if (data && data.password === pass) {
+            document.getElementById('login-overlay').classList.add('hidden');
+            Game.init();
+        } else {
+            alert("Неверный пароль");
+        }
+    }
+};
+
+// --- GAME ENGINE ---
+const Game = {
+    yt: null,
+    tickInterval: null,
+    debounceSave: null,
+
+    async init() {
+        // Init YouTube
+        window.onYouTubeIframeAPIReady = () => {
+            this.yt = new YT.Player('yt-player', {
+                height: '1', width: '1',
+                playerVars: { 'autoplay': 0, 'controls': 0, 'disablekb': 1 },
+                events: { 'onStateChange': this.onPlayerStateChange.bind(this) }
+            });
+        };
+
+        // Load persisted state
+        await this.loadState();
+        
+        // Start Realtime
+        const channel = supabaseClient.channel(CFG.channel);
+        channel
+            .on('presence', { event: 'sync' }, () => {
+                const state = channel.presenceState();
+                Store.onlineUsers.clear();
+                for (const id in state) {
+                    state[id].forEach(u => Store.onlineUsers.add(u.user));
+                }
+                UI.renderTable();
+                this.checkAutoProgress(); // Check if everyone returned
+            })
+            .on('broadcast', { event: 'packet_answer' }, (payload) => {
+                this.handleAnswer(payload.payload);
+            })
+            .subscribe();
+
+        // Global Ticker (UI updates + Timer checks)
+        this.tickInterval = setInterval(() => this.tick(), 250);
+        UI.render();
+    },
+
+    // --- CORE LOGIC ---
+
+    playStage(stageIdx) {
+        if (!Store.playlist[Store.trackIdx]) return;
+        if (Store.isPaused) this.togglePause();
+
+        // 1. Update State
+        Store.phase = 'PLAYING';
+        Store.activeStage = stageIdx;
+        const cfg = CFG.levels[stageIdx];
+        
+        // 2. Set Timer (Current Time + Duration)
+        const totalSec = Math.ceil(cfg.dur) + cfg.timer;
+        Store.timerEndTs = Date.now() + (totalSec * 1000);
+
+        // 3. Reset Round Status for "WAIT" players (Not those who answered/skipped song)
+        Object.values(Store.players).forEach(p => {
+            if (p.round.status === 'SKIP_HINT') p.round.status = 'WAIT';
+        });
+
+        // 4. YouTube
+        const track = Store.playlist[Store.trackIdx];
+        const vid = this.extractVideoId(track[0]);
+        const start = track[3 + stageIdx] || 0;
+        
+        if (this.yt && vid) {
+            this.yt.loadVideoById({ videoId: vid, startSeconds: start });
+            // Pause video after segment duration
+            setTimeout(() => {
+                if(Store.phase === 'PLAYING' && !Store.isPaused) this.yt.pauseVideo();
+            }, cfg.dur * 1000);
+        }
+
+        // 5. Broadcast
+        this.broadcast('sync_state', {
+            phase: 'PLAYING',
+            songNum: Store.trackIdx + 1,
+            totalSongs: Store.playlist.length,
+            levelName: `Подсказка ${stageIdx + 1}`,
+            levelIdx: stageIdx,
+            timerEndTs: Store.timerEndTs
+        });
+
+        this.saveState();
+        UI.render();
+    },
+
+    reveal() {
+        Store.phase = 'REVEALED';
+        Store.activeStage = -1;
+        Store.timerEndTs = 0;
+        
+        if (this.yt) this.yt.pauseVideo();
+
+        const track = Store.playlist[Store.trackIdx];
+        const answerText = `${track[1]} — ${track[2]}`;
+
+        this.broadcast('reveal', { answer: answerText });
+        this.saveState();
+        UI.render();
+    },
+
+    changeTrack(dir) {
+        const next = Store.trackIdx + dir;
+        if (next < 0 || next >= Store.playlist.length) return;
+
+        // Commit Scores from previous round
+        Object.values(Store.players).forEach(p => {
+            // Apply bonus combo
+            const r = p.round;
+            if (r.status === 'ANS' && r.stage !== null) {
+                const cfg = CFG.levels[r.stage];
+                if (r.artScore > 0 && r.songScore > 0) p.totalScore += cfg.combo;
+            }
+            p.totalScore += (r.artScore + r.songScore);
+            // Reset Round
+            p.round = { status: 'WAIT', art: '', song: '', stage: null, artScore: 0, songScore: 0 };
+        });
+
+        Store.trackIdx = next;
+        Store.phase = 'IDLE';
+        Store.activeStage = -1;
+        Store.timerEndTs = 0;
+
+        // Clean chat log
+        supabaseClient.from(CFG.channel).delete().neq('id', '00000000-0000-0000-0000-000000000000').then();
+
+        this.broadcast('sync_state', {
+            phase: 'IDLE',
+            songNum: Store.trackIdx + 1,
+            totalSongs: Store.playlist.length,
+            levelName: 'ОЖИДАНИЕ',
+            levelIdx: -1
+        });
+
+        this.saveState();
+        UI.render();
+        
+        // Auto-play first hint if moving forward
+        if (dir > 0) setTimeout(() => this.playStage(0), 800);
+    },
+
+    // --- LOGIC: HANDLE ANSWERS ---
+    handleAnswer(data) {
+        // data: { login, songNum, levelIdx, type: 'ANS'|'SKIP_HINT'|'SKIP_SONG', payload }
+        const p = Store.players[data.login];
+        if (!p) return; // Unknown player
+        
+        // Ignore old packets
+        if (data.songNum !== Store.trackIdx + 1) return;
+
+        p.lastSeen = Date.now();
+        const r = p.round;
+
+        if (data.type === 'SKIP_SONG') {
+            r.status = 'SKIP_SONG';
+        } else if (data.type === 'SKIP_HINT') {
+            // Only skip if currently waiting
+            if (r.status === 'WAIT') r.status = 'SKIP_HINT';
+        } else if (data.type === 'ANS') {
+            r.status = 'ANS';
+            r.stage = data.levelIdx;
+            const [a, s] = data.payload.split('|');
+            r.art = a; r.song = s;
+        }
+
+        UI.renderTable();
+        this.checkAutoProgress();
+    },
+
+    // --- LOGIC: AUTO PROGRESSION (The Fix) ---
+    checkAutoProgress() {
+        if (Store.phase !== 'PLAYING') return;
+
+        const onlineLogins = [...Store.onlineUsers];
+        if (onlineLogins.length === 0) return;
+
+        let finishedRound = 0; // ANS or SKIP_SONG
+        let finishedHint = 0;  // ANS or SKIP_SONG or SKIP_HINT
+
+        onlineLogins.forEach(login => {
+            const p = Store.players[login];
+            if (!p) return; // Should not happen
+            const s = p.round.status;
+            
+            if (s === 'ANS' || s === 'SKIP_SONG') {
+                finishedRound++;
+                finishedHint++;
+            } else if (s === 'SKIP_HINT') {
+                finishedHint++;
+            }
+        });
+
+        // 1. All players done with song? -> Reveal
+        if (finishedRound >= onlineLogins.length) {
+            this.reveal();
+            return;
+        }
+
+        // 2. All players done with hint? -> Next Hint
+        if (finishedHint >= onlineLogins.length) {
+            this.triggerNextStage();
+        }
+    },
+
+    tick() {
+        // Timer Logic
+        if (Store.phase === 'PLAYING' && Store.timerEndTs > 0 && !Store.isPaused) {
+            const now = Date.now();
+            const left = Math.ceil((Store.timerEndTs - now) / 1000);
+            
+            UI.updateTimer(left > 0 ? left : 0, 25); // 25 is arbitrary max for circle
+
+            if (left <= 0) {
+                // TIMER EXPIRED
+                // Force move to next stage regardless of answers
+                this.triggerNextStage();
+            }
+        } else if (Store.phase === 'IDLE' || Store.phase === 'REVEALED') {
+            UI.updateTimer(0, 1);
+        }
+    },
+
+    triggerNextStage() {
+        if (Store.activeStage < 2) {
+            // Move to next hint
+            this.playStage(Store.activeStage + 1);
+        } else {
+            // Was last hint -> Reveal
+            this.reveal();
+        }
+    },
+
+    // --- UTILS ---
+    togglePause() {
+        Store.isPaused = !Store.isPaused;
+        const now = Date.now();
+        
+        if (Store.isPaused) {
+            // Store remaining ms
+            Store.pauseLeftMs = Store.timerEndTs - now;
+            if (this.yt) this.yt.pauseVideo();
+        } else {
+            // Restore timestamp based on remaining ms
+            Store.timerEndTs = now + Store.pauseLeftMs;
+            if (this.yt && Store.phase === 'PLAYING') this.yt.playVideo();
+        }
+        
+        // Broadcast pause state so clients stop their local timers visual
+        this.broadcast('game_paused', { paused: Store.isPaused });
+    },
+    
+    resetAll() {
+        if(!confirm("Полный сброс игры?")) return;
+        Store.players = {};
+        Store.trackIdx = 0;
+        Store.phase = 'IDLE';
+        this.saveState();
+        location.reload();
+    },
+
+    broadcast(event, payload) {
+        supabaseClient.channel(CFG.channel).send({ type: 'broadcast', event, payload });
+    },
+
+    extractVideoId(url) {
+        return url ? url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/)?.[1] : null;
+    },
+
+    // --- PERSISTENCE ---
+    saveState() {
+        clearTimeout(this.debounceSave);
+        this.debounceSave = setTimeout(async () => {
+            await supabaseClient.from('quiz_state').upsert({
+                id: 1,
+                playlist: Store.playlist,
+                current_index: Store.trackIdx,
+                scores: Store.players, // Using 'scores' col for full player object
+                active_level: Store.activeStage,
+                current_phase: Store.phase,
+                timer_end_ts: Store.timerEndTs
+            });
+        }, 500);
+    },
+
+    async loadState() {
+        const { data } = await supabaseClient.from('quiz_state').select('*').eq('id', 1).single();
+        if (data) {
+            Store.playlist = data.playlist || [];
+            Store.trackIdx = data.current_index || 0;
+            Store.players = data.scores || {};
+            Store.phase = data.current_phase || 'IDLE';
+            Store.activeStage = data.active_level;
+            Store.timerEndTs = data.timer_end_ts || 0;
+        }
+    },
+
+    // Not used in logic but needed for YouTube API
+    onPlayerStateChange(e) {}
+};
+
+// --- UI RENDERER ---
+const UI = {
+    render() {
+        // Track Info
+        const t = Store.playlist[Store.trackIdx];
+        if (t) {
+            document.getElementById('track-info').innerText = `TRACK ${Store.trackIdx + 1} / ${Store.playlist.length}`;
+            // If revealed, show info, else ???
+            if (Store.phase === 'REVEALED') {
+                document.getElementById('info-artist').innerText = t[1];
+                document.getElementById('info-song').innerText = t[2];
+                document.getElementById('status-text').innerText = "ОТВЕТ";
+                document.getElementById('status-text').className = "status-badge reveal";
+            } else {
+                document.getElementById('info-artist').innerText = "???";
+                document.getElementById('info-song').innerText = "???";
+                document.getElementById('status-text').innerText = Store.phase === 'PLAYING' ? `ПОДСКАЗКА ${Store.activeStage+1}` : "ОЖИДАНИЕ";
+                document.getElementById('status-text').className = Store.phase === 'PLAYING' ? "status-badge active" : "status-badge";
+            }
+        }
+
+        // Active Buttons
+        [0,1,2].forEach(i => {
+            const btn = document.getElementById(`btn-s${i+1}`);
+            btn.className = `btn-stage ${Store.activeStage === i && Store.phase === 'PLAYING' ? 'active' : ''}`;
+        });
+
+        this.renderTable();
+    },
+
+    renderTable() {
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+        
+        // Sort: Total Score Desc
+        const sorted = Object.keys(Store.players).sort((a,b) => Store.players[b].totalScore - Store.players[a].totalScore);
+
+        sorted.forEach(login => {
+            const p = Store.players[login];
+            const isOnline = Store.onlineUsers.has(login);
+            const r = p.round;
+            const cfg = Store.activeStage > -1 ? CFG.levels[Store.activeStage] : CFG.levels[0]; // fallback
+            
+            // Calc current round points for display
+            const roundPts = (r.artScore + r.songScore);
+            const totalDisplay = (p.totalScore + roundPts).toFixed(0);
+
+            let rowClass = 'user-row';
+            if (!isOnline) rowClass += ' offline';
+            if (r.status === 'ANS') rowClass += ' answered';
+            if (r.status === 'SKIP_HINT') rowClass += ' skipped-hint';
+            if (r.status === 'SKIP_SONG') rowClass += ' skipped-song';
+
+            const tr = document.createElement('tr');
+            tr.className = rowClass;
+            
+            // Helper to create answer cell
+            const createCell = (type, maxScore, k) => {
+                const txt = type === 'art' ? r.art : r.song;
+                const score = type === 'art' ? r.artScore : r.songScore;
+                
+                // Show text if Revealed OR if it's a skip
+                const isSkip = r.status.includes('SKIP');
+                const isHidden = !isSkip && Store.phase !== 'REVEALED';
+                
+                let html = `<div class="ans-box ${isHidden ? 'hidden' : ''}">
+                    <span>${txt || (isSkip ? 'SKIP' : '...')}</span>
+                `;
+                
+                if (Store.phase === 'REVEALED' && !isSkip && txt) {
+                    const partScore = maxScore * k;
+                    html += `<div class="actions">
+                        <button class="mini-btn" style="background:#22c55e" onclick="Game.setScore('${login}','${type}',${maxScore})">F</button>
+                        <button class="mini-btn" style="background:#eab308" onclick="Game.setScore('${login}','${type}',${partScore})">P</button>
+                        <button class="mini-btn" style="background:#ef4444" onclick="Game.setScore('${login}','${type}',0)">0</button>
+                    </div>`;
+                }
+                html += `</div>`;
+                return html;
+            };
+
+            tr.innerHTML = `
+                <td>
+                    <div style="font-weight:bold; display:flex; align-items:center; gap:8px;">
+                        ${login} <div style="width:6px; height:6px; border-radius:50%; background:${isOnline?'#22c55e':'#444'}"></div>
+                    </div>
+                </td>
+                <td align="center">
+                    <input class="score-input" type="number" value="${totalDisplay}" onchange="Game.manualScore('${login}', this.value)">
+                </td>
+                <td>${createCell('art', CFG.levels[r.stage||0].pArt, CFG.levels[r.stage||0].kArt)}</td>
+                <td>${createCell('song', CFG.levels[r.stage||0].pSong, CFG.levels[r.stage||0].kSong)}</td>
+                <td align="center" style="color:#666; font-weight:bold;">${r.stage !== null ? r.stage+1 : '-'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    },
+
+    updateTimer(sec, max) {
+        document.getElementById('timer-val').innerText = sec < 10 ? '0'+sec : sec;
+        const circle = document.getElementById('timer-ring');
+        // 226 is circumference (2 * pi * 36)
+        const offset = 226 - (sec / max) * 226;
+        circle.style.strokeDashoffset = offset;
+    }
+};
+
+// --- MANUAL ACTIONS ---
+Game.setScore = (login, type, val) => {
+    const p = Store.players[login];
+    if (type === 'art') p.round.artScore = parseFloat(val);
+    if (type === 'song') p.round.songScore = parseFloat(val);
+    Game.saveState();
+    UI.renderTable();
+};
+
+Game.manualScore = (login, val) => {
+    Store.players[login].totalScore = parseFloat(val);
+    Store.players[login].round.artScore = 0;
+    Store.players[login].round.songScore = 0;
+    Game.saveState();
+    UI.renderTable();
+};
+
+// Excel Parser
+document.getElementById('file-in').addEventListener('change', e => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+        const wb = XLSX.read(ev.target.result, { type: 'binary' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(sheet, {header:1});
+        // Simple validation: must have link
+        Store.playlist = raw.filter(r => r[0] && r[0].toString().includes('http'));
+        Store.trackIdx = 0;
+        Game.saveState();
+        UI.render();
+    };
+    reader.readAsBinaryString(e.target.files[0]);
+});
+</script>
+</body>
+</html>
