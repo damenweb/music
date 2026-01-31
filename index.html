@@ -299,10 +299,10 @@
             tbody.innerHTML = '';
             d.allLevels.forEach((l, idx) => {
                 const isCurrent = idx === d.activeLvlIdx;
-                const art1 = (lvl.pArt * lvl.kArt).toFixed(2);
-                const art2 = (lvl.pArt * (lvl.kArt2 || 0)).toFixed(2);
-                const sng1 = (lvl.pSong * lvl.kSong).toFixed(2);
-                const sng2 = (lvl.pSong * (lvl.kSong2 || 0)).toFixed(2);
+                const art1 = (l.pArt * l.kArt).toFixed(2);
+                const art2 = (l.pArt * (l.kArt2 || 0)).toFixed(2);
+                const sng1 = (l.pSong * l.kSong).toFixed(2);
+                const sng2 = (l.pSong * (l.kSong2 || 0)).toFixed(2);
                 tbody.innerHTML += `
                     <tr>
                         <td class="${isCurrent?'highlight':''}">${idx+1}</td>
