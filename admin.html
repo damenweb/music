@@ -915,10 +915,10 @@
         const tbody = document.getElementById('info-table-body');
         tbody.innerHTML = '';
         settings.levels.forEach((lvl, i) => {
-            const art1 = (lvl.pArt * lvl.kArt).toFixed(1);
-            const art2 = (lvl.pArt * (lvl.kArt2 || 0)).toFixed(1);
-            const sng1 = (lvl.pSong * lvl.kSong).toFixed(1);
-            const sng2 = (lvl.pSong * (lvl.kSong2 || 0)).toFixed(1);
+            const art1 = (lvl.pArt * lvl.kArt).toFixed(2);
+            const art2 = (lvl.pArt * (lvl.kArt2 || 0)).toFixed(2);
+            const sng1 = (lvl.pSong * lvl.kSong).toFixed(2);
+            const sng2 = (lvl.pSong * (lvl.kSong2 || 0)).toFixed(2);
             
             tbody.innerHTML += `
                 <tr>
