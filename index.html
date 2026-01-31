@@ -207,6 +207,8 @@
                  // Enable inputs if not already answered
                  if (!hasAnsweredThisSong) {
                      toggleInputs(true);
+                     if(currentLvlIdx === 2)
+                         document.getElementById('skipBtn').disabled = true;
                      //document.getElementById('status').innerText = "ВРЕМЯ ИДЕТ! (Восстановлено)";
                  } else {
                      //document.getElementById('status').innerText = "Ждем остальных... (Восстановлено)";
@@ -290,11 +292,7 @@
         }
 
         currentLvlTag = d.level;
-        currentLvlIdx = d.activeLvlIdx; 
-
-        console.log("DA" + currentLvlIdx);
-        if(currentLvlIdx === 2)
-            document.getElementById('skipBtn').disabled = true;
+        currentLvlIdx = d.activeLvlIdx;
         
         // ... (отрисовка таблицы d.allLevels без изменений) ...
         // Render Points Table
@@ -344,7 +342,9 @@
         const sec = p.payload.sec;
         if (sec > 0) {
             if (!hasAnsweredThisSong) { 
-                toggleInputs(true); 
+                toggleInputs(true);
+                if(currentLvlIdx === 2)
+                    document.getElementById('skipBtn').disabled = true;
                 //document.getElementById('status').innerText = "ВРЕМЯ ПОШЛО! 🔥"; 
             } else {
                  //document.getElementById('status').innerText = "Ждем остальных..."; 
