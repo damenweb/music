@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Игрок - Quiz</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f0f13; --panel: #1e1e24; --border: #333;
+            --accent: #3b82f6; --accent-dark: #1d4ed8;
+            --gold: #eab308; --danger: #ef4444; --text: #f3f4f6; --muted: #9ca3af;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+
+        /* Login Screen */
+        .login-container { max-width: 400px; width: 100%; margin-top: 20vh; text-align: center; }
+        .logo { font-size: 24px; font-weight: 800; letter-spacing: 2px; color: var(--accent); margin-bottom: 30px; text-transform: uppercase; }
+        
+        input { width: 100%; background: #000; border: 1px solid var(--border); color: white; padding: 15px; border-radius: 8px; font-size: 16px; margin-bottom: 12px; outline: none; transition: 0.2s; text-align: center; font-family: 'JetBrains Mono', monospace; }
+        input:focus { border-color: var(--accent); background: #0a0a0a; }
+        input:disabled { opacity: 0.5; background: #1a1a1a; border-color: transparent; }
+
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 8px; font-weight: 800; font-size: 14px; text-transform: uppercase; cursor: pointer; transition: 0.1s; color: white; margin-top: 8px; letter-spacing: 1px; }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: var(--accent); box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); }
+        .btn-skip { background: transparent; border: 1px solid var(--border); color: var(--muted); margin-top: 0; }
+        .btn-giveup { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--danger); }
+        
+        /* Game Screen */
+        #game-screen { width: 100%; max-width: 450px; display: none; flex-direction: column; gap: 15px; padding-bottom: 40px; }
+        
+        .top-bar { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 10px; }
+        .badge { padding: 4px 8px; border-radius: 4px; background: #222; color: white; font-weight: bold; }
+        .badge.lvl-0 { color: var(--gold); border: 1px solid rgba(234, 179, 8, 0.3); } /* Hint 1 */
+        .badge.lvl-1 { color: #aaa; border: 1px solid #555; } /* Hint 2 */
+        .badge.lvl-2 { color: #cd7f32; border: 1px solid #8d5524; } /* Hint 3 */
+
+        .timer-display { font-size: 64px; font-weight: 800; color: var(--accent); text-align: center; font-family: 'JetBrains Mono', monospace; margin: 10px 0; text-shadow: 0 0 20px rgba(59,130,246,0.2); }
+        .timer-display.danger { color: var(--danger); text-shadow: 0 0 20px rgba(239,68,68,0.3); }
+
+        .status-msg { text-align: center; font-size: 14px; min-height: 20px; color: var(--muted); font-weight: 600; }
+
+        .controls-row { display: flex; gap: 10px; margin-top: 5px; }
+        .controls-row button { flex: 1; padding: 12px; font-size: 11px; }
+
+        .auto-send-wrapper { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 5px; cursor: pointer; }
+        .auto-send-wrapper input { width: auto; margin: 0; }
+
+        /* Overlay for Pause/Wait */
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; transition: opacity 0.3s; pointer-events: none; opacity: 0; }
+        #overlay.visible { opacity: 1; pointer-events: auto; }
+        #overlay h2 { color: white; margin-bottom: 10px; }
+        #overlay p { color: #aaa; font-size: 14px; max-width: 300px; line-height: 1.5; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen" class="login-container">
+        <div class="logo">QUIZ PLAYER</div>
+        <input type="text" id="username" placeholder="Логин (как в таблице)">
+        <input type="password" id="password" placeholder="Пароль">
+        <button class="btn btn-primary" onclick="Auth.login()">ВОЙТИ</button>
+        <p id="login-error" style="color:var(--danger); font-size:12px; display:none;">Неверные данные</p>
+    </div>
+
+    <div id="game-screen">
+        <div class="top-bar">
+            <span id="track-num">TRACK --/--</span>
+            <span id="user-display">PLAYER</span>
+        </div>
+
+        <div style="text-align: center;">
+            <span id="lvl-badge" class="badge">ОЖИДАНИЕ</span>
+        </div>
+        
+        <div id="timer" class="timer-display">00</div>
+        <div id="status-text" class="status-msg">Ждем начала раунда...</div>
+
+        <input type="text" id="inp-artist" placeholder="Исполнитель" autocomplete="off" maxlength="50">
+        <input type="text" id="inp-song" placeholder="Название песни" autocomplete="off" maxlength="50">
+        
+        <label class="auto-send-wrapper">
+            <input type="checkbox" id="auto-send" checked>
+            Отправлять автоматически, когда выйдет время
+        </label>
+
+        <button id="btn-send" class="btn btn-primary" onclick="Player.submitAnswer()">ОТПРАВИТЬ ОТВЕТ</button>
+        
+        <div class="controls-row">
+            <button id="btn-skip-hint" class="btn btn-skip" onclick="Player.skipHint()">ПРОПУСТИТЬ (Hint)</button>
+            <button id="btn-give-up" class="btn btn-giveup" onclick="Player.giveUp()">СДАТЬСЯ (Track)</button>
+        </div>
+        
+        <button class="btn btn-skip" style="margin-top:20px; font-size:10px; padding:10px;" onclick="Auth.logout()">ВЫЙТИ ИЗ АККАУНТА</button>
+    </div>
+
+    <div id="overlay">
+        <h2 id="ov-title">ПАУЗА</h2>
+        <p id="ov-desc">Администратор приостановил игру</p>
+    </div>
+
+<script>
+    // --- CONFIG ---
+    const CFG = {
+        url: 'https://gatadttzyeusozvkwvai.supabase.co',
+        key: 'sb_publishable_cwXp1mw42C6sDXoeszY8sw_lYrAAefY',
+        channel: 'quiz_chat'
+    };
+    const sb = supabase.createClient(CFG.url, CFG.key);
+
+    // --- AUTH ---
+    const Auth = {
+        user: null,
+        async init() {
+            const u = localStorage.getItem('quiz_u');
+            const p = localStorage.getItem('quiz_p');
+            if (u && p) this.verify(u, p);
+        },
+        async login() {
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value.trim();
+            if(!u || !p) return;
+            this.verify(u, p);
+        },
+        async verify(u, p) {
+            const { data } = await sb.from('quiz_users').select('*').eq('username', u).eq('password', p).single();
+            if (data) {
+                this.user = data.username;
+                localStorage.setItem('quiz_u', u);
+                localStorage.setItem('quiz_p', p);
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('game-screen').style.display = 'flex';
+                document.getElementById('user-display').innerText = u;
+                Player.init();
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+                localStorage.clear();
+            }
+        },
+        logout() { localStorage.clear(); location.reload(); }
+    };
+
+    // --- PLAYER LOGIC ---
+    const Player = {
+        state: {
+            songNum: 0,
+            activeLevel: -1,
+            phase: 'IDLE', // IDLE, PLAYING, REVEALED
+            timerEndTs: 0,
+            hasAnsweredSong: false, 
+            hasSkippedHint: false
+        },
+        timerInt: null,
+
+        init() {
+            // 1. Load Initial State (Fix F5 refresh)
+            this.restoreState();
+
+            // 2. Subscribe to Admin events
+            const ch = sb.channel(CFG.channel);
+            ch.on('broadcast', { event: 'sync_state' }, payload => this.handleSync(payload.payload))
+              .on('broadcast', { event: 'reveal' }, payload => this.handleReveal(payload.payload))
+              .on('broadcast', { event: 'game_paused' }, payload => this.handlePause(payload.payload))
+              .subscribe();
+            
+            // 3. Keep presence alive so Admin sees us
+            ch.track({ user: Auth.user });
+        },
+
+        async restoreState() {
+            const { data } = await sb.from('quiz_state').select('*').eq('id', 1).single();
+            if (!data) return;
+
+            // Restore global game vars
+            this.state.songNum = (data.current_index || 0) + 1;
+            this.state.phase = data.current_phase || 'IDLE';
+            this.state.timerEndTs = data.timer_end_ts || 0;
+            this.state.activeLevel = typeof data.active_level !== 'undefined' ? data.active_level : -1;
+
+            // Check MY personal status from DB (Did I answer?)
+            if (data.scores && data.scores[Auth.user]) {
+                const myData = data.scores[Auth.user].roundData || {}; // roundData is inside scores JSON
+                // Map DB status to local logic
+                if (myData.status === 'ANS' || myData.status === 'SKIP_SONG') {
+                    this.state.hasAnsweredSong = true;
+                } else if (myData.status === 'SKIP_HINT') {
+                    // Check if this skip was for the current level
+                    // Since DB stores current state, if level matches, we skipped it.
+                    // But if admin moved to next level, we are reset (handled by handleSync logic usually)
+                    // For simplicity on restore: if skipped hint but active level matches, lock inputs
+                    this.state.hasSkippedHint = true; 
+                }
+            }
+
+            // Update UI based on restored data
+            document.getElementById('track-num').innerText = `TRACK ${this.state.songNum}/${data.playlist?.length || '?'}`;
+            
+            if (this.state.phase === 'PLAYING') {
+                this.handleSync({
+                    phase: 'PLAYING',
+                    songNum: this.state.songNum,
+                    levelName: `Подсказка ${this.state.activeLevel + 1}`,
+                    levelIdx: this.state.activeLevel,
+                    timerEndTs: this.state.timerEndTs,
+                    totalSongs: data.playlist?.length
+                });
+            } else if (this.state.phase === 'REVEALED') {
+                this.showOverlay("ОТВЕТ НА ЭКРАНЕ", "Смотрите на экран администратора");
+                this.lockInputs(true);
+            }
+        },
+
+        handleSync(d) {
+            // d = { phase, songNum, levelIdx, timerEndTs ... }
+            const isNewSong = d.songNum !== this.state.songNum;
+            const isNewLevel = d.levelIdx !== this.state.activeLevel;
+
+            // Reset logic
+            if (isNewSong) {
+                this.state.hasAnsweredSong = false;
+                this.state.hasSkippedHint = false;
+                this.clearInputs();
+            } else if (isNewLevel) {
+                // New hint within same song -> reset hint skip
+                this.state.hasSkippedHint = false;
+            }
+
+            // Apply State
+            this.state.songNum = d.songNum;
+            this.state.activeLevel = d.levelIdx;
+            this.state.phase = d.phase;
+            this.state.timerEndTs = d.timerEndTs;
+
+            // UI Updates
+            document.getElementById('track-num').innerText = `TRACK ${d.songNum}/${d.totalSongs}`;
+            document.getElementById('lvl-badge').innerText = d.levelName;
+            
+            // Badge Colors
+            const b = document.getElementById('lvl-badge');
+            b.className = `badge lvl-${d.levelIdx}`;
+
+            this.hideOverlay();
+
+            if (d.phase === 'IDLE') {
+                document.getElementById('status-text').innerText = "Ожидание следующего трека...";
+                this.lockInputs(true);
+                this.setTimer(0);
+            } else if (d.phase === 'PLAYING') {
+                // If I finished this song, stay locked
+                if (this.state.hasAnsweredSong) {
+                    this.lockInputs(true);
+                    document.getElementById('status-text').innerText = "Ответ принят. Ждем...";
+                } 
+                // If I skipped this specific hint, stay locked until next hint
+                else if (this.state.hasSkippedHint) {
+                    this.lockInputs(true);
+                    document.getElementById('status-text').innerText = "Подсказка пропущена";
+                } 
+                // Otherwise - PLAY!
+                else {
+                    this.lockInputs(false);
+                    document.getElementById('status-text').innerText = "Слушаем...";
+                    this.startTimerLoop();
+                }
+            }
+        },
+
+        handleReveal(d) {
+            this.state.phase = 'REVEALED';
+            this.setTimer(0);
+            this.lockInputs(true);
+            // Optional: Show answer locally too? Or just overlay.
+            // document.getElementById('status-text').innerText = d.answer; 
+            this.showOverlay("ОТВЕТ", d.answer);
+        },
+
+        handlePause(d) {
+            if (d.paused) {
+                this.showOverlay("ПАУЗА", "Игра приостановлена администратором");
+            } else {
+                if (this.state.phase !== 'REVEALED') this.hideOverlay();
+            }
+        },
+
+        // --- ACTIONS ---
+
+        async submitAnswer() {
+            if (this.state.hasAnsweredSong) return;
+            const art = document.getElementById('inp-artist').value.trim();
+            const sng = document.getElementById('inp-song').value.trim();
+            
+            // Allow sending partial answer if timer is running out, but preferably both
+            if (!art && !sng) return; 
+
+            this.state.hasAnsweredSong = true;
+            this.lockInputs(true);
+            document.getElementById('status-text').innerText = "Отправка...";
+
+            await this.sendPacket('ANS', `${art} | ${sng}`);
+            document.getElementById('status-text').innerText = "Ответ принят!";
+        },
+
+        async skipHint() {
+            if (this.state.hasAnsweredSong || this.state.hasSkippedHint) return;
+            
+            this.state.hasSkippedHint = true;
+            this.lockInputs(true); // Lock inputs only for this hint
+            document.getElementById('status-text').innerText = "Пропуск подсказки...";
+            
+            await this.sendPacket('SKIP_HINT', 'SKIP');
+        },
+
+        async giveUp() {
+            if (!confirm("Сдаться в этом раунде? (0 очков)")) return;
+            this.state.hasAnsweredSong = true;
+            this.lockInputs(true);
+            document.getElementById('status-text').innerText = "Вы сдались.";
+            
+            await this.sendPacket('SKIP_SONG', 'GIVE_UP');
+        },
+
+        async sendPacket(type, payload) {
+            // Using broadcast channel to send data to Admin
+            await sb.channel(CFG.channel).send({
+                type: 'broadcast',
+                event: 'packet_answer',
+                payload: {
+                    login: Auth.user,
+                    songNum: this.state.songNum,
+                    levelIdx: this.state.activeLevel,
+                    type: type,
+                    payload: payload
+                }
+            });
+        },
+
+        // --- UTILS ---
+
+        startTimerLoop() {
+            clearInterval(this.timerInt);
+            this.timerInt = setInterval(() => {
+                if (this.state.phase !== 'PLAYING') {
+                    clearInterval(this.timerInt);
+                    return;
+                }
+                const now = Date.now();
+                const leftMs = this.state.timerEndTs - now;
+                const leftSec = Math.ceil(leftMs / 1000);
+
+                if (leftSec <= 0) {
+                    this.setTimer(0);
+                    clearInterval(this.timerInt);
+                    this.onTimerEnd();
+                } else {
+                    this.setTimer(leftSec);
+                }
+            }, 200);
+        },
+
+        setTimer(val) {
+            const el = document.getElementById('timer');
+            el.innerText = val < 10 ? '0'+val : val;
+            if (val <= 5 && val > 0) el.classList.add('danger');
+            else el.classList.remove('danger');
+        },
+
+        onTimerEnd() {
+            // Timer visually hit 0. 
+            // 1. If auto-send is ON and fields are not empty -> Send
+            if (!this.state.hasAnsweredSong && !this.state.hasSkippedHint) {
+                const auto = document.getElementById('auto-send').checked;
+                const a = document.getElementById('inp-artist').value.trim();
+                const s = document.getElementById('inp-song').value.trim();
+                
+                if (auto && (a || s)) {
+                    this.submitAnswer();
+                } else {
+                    // Otherwise just lock UI visually, waiting for next hint broadcast
+                    this.lockInputs(true);
+                    document.getElementById('status-text').innerText = "Время вышло...";
+                }
+            }
+        },
+
+        lockInputs(lock) {
+            document.getElementById('inp-artist').readOnly = lock;
+            document.getElementById('inp-song').readOnly = lock;
+            document.getElementById('btn-send').disabled = lock;
+            document.getElementById('btn-skip-hint').disabled = lock;
+            
+            // Give up button is only disabled if we finished the SONG, not just a hint
+            const songDone = this.state.hasAnsweredSong;
+            document.getElementById('btn-give-up').disabled = songDone; 
+            
+            // Visual opacity
+            document.getElementById('game-screen').style.opacity = lock && !songDone ? 0.8 : 1;
+        },
+
+        clearInputs() {
+            document.getElementById('inp-artist').value = '';
+            document.getElementById('inp-song').value = '';
+        },
+
+        showOverlay(title, desc) {
+            document.getElementById('ov-title').innerText = title;
+            document.getElementById('ov-desc').innerText = desc;
+            document.getElementById('overlay').classList.add('visible');
+        },
+        hideOverlay() {
+            document.getElementById('overlay').classList.remove('visible');
+        }
+    };
+
+    window.onload = () => Auth.init();
+</script>
+</body>
+</html>
