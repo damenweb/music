@@ -128,9 +128,14 @@
     };
 
     async function checkAuth() {
-        const u = localStorage.getItem('quiz_user'), p = localStorage.getItem('quiz_pass');
+        /*const u = localStorage.getItem('quiz_user'), p = localStorage.getItem('quiz_pass');
         if (u && p) {
             const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', u).eq('password', p).single();
+            if (data) { myLogin = data.username; showGameScreen(); }
+        }*/
+        const u = localStorage.getItem('quiz_user'), p = localStorage.getItem('quiz_pass');
+        if (u) {
+            const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', u).single();
             if (data) { myLogin = data.username; showGameScreen(); }
         }
     }
@@ -142,7 +147,7 @@
             localStorage.setItem('quiz_user', u); localStorage.setItem('quiz_pass', p);
             myLogin = data.username; showGameScreen();
         } else {
-            alert("Неверно!");
+            alert("Отказано в доступе");
         }
     }
 
