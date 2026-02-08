@@ -884,12 +884,12 @@
     }
 
     function removePlayer(login) {
-        if(confirm(`Удалить игрока ${login}?`)) {
+        //if(confirm(`Удалить игрока ${login}?`)) {
             delete players[login];
             sortedPlayerLogins = sortedPlayerLogins.filter(l => l !== login);
             saveGlobalState();
             renderTable();
-        }
+        //}
     }
 
     // --- SETTINGS & INFO TABLE ---
