@@ -821,9 +821,13 @@
             const as = rd.artScore || 0;
         
             const ss = rd.songScore || 0;
+            //let comboBonus = 0;
+            //if (rd.status === 'ANS' && as > 0 && ss > 0) comboBonus = cfg.combo;
+            //const currentRoundTotal = as + ss + comboBonus;
             let comboBonus = 0;
             if (rd.status === 'ANS' && as > 0 && ss > 0) comboBonus = cfg.combo;
-            const currentRoundTotal = as + ss + comboBonus;
+            const currentRoundTotal = Math.floor((as + ss)*(1+comboBonus/100));
+            
             const displayScore = Number((p.totalScore + currentRoundTotal).toFixed(2));
             // Generate Buttons
             const genBtns = (type, maxPts, k1, k2) => {
