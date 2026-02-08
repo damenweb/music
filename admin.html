@@ -871,8 +871,6 @@
         val = parseFloat(val);
         if (type === 'art') players[login].roundData.artScore = val;
         if (type === 'song') players[login].roundData.songScore = val;
-
-        saveGlobalState();
         renderTable();
         saveGlobalState();
     }
@@ -1020,12 +1018,12 @@
         .neq('id', 0);
     
       if (error) {
-        console.error('Supabase error:', error);
+        console.error('Supabase error:', error)
         return;
       }
-    
-      saveGlobalState();
-    renderTable(); 
+        renderTable();
+        saveGlobalState();
+      renderTable();
     }
 
     // REMOVED AUTO-DELETE INTERVAL AS REQUESTED
