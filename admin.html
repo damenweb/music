@@ -1012,7 +1012,11 @@
     }
 
     async function resetGame() {
-        if(confirm("Полный сброс (F5)?")) location.reload();
+        await supabaseClient
+          .from('quiz_state')
+          .update({ scores: {} })
+          .neq('id', 0)
+        renderTable();
     }
 
     // REMOVED AUTO-DELETE INTERVAL AS REQUESTED
