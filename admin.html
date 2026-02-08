@@ -1012,11 +1012,17 @@
     }
 
     async function resetGame() {
-        await supabaseClient
-          .from('quiz_state')
-          .update({ scores: {} })
-          .neq('id', 0)
-        renderTable();
+      const { data, error } = await supabaseClient
+        .from('quiz_state')
+        .update({ scores: {} })
+        .neq('id', 0)
+    
+      if (error) {
+        console.error('Supabase error:', error)
+        return
+      }
+    
+      renderTable()
     }
 
     // REMOVED AUTO-DELETE INTERVAL AS REQUESTED
