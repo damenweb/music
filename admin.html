@@ -223,7 +223,7 @@
     <div style="flex:1"></div>
     <button class="btn-sm" onclick="toggleSettings()">Настройки</button>
     <button id="btn-pause" class="btn-sm pause-btn" onclick="togglePause()">ПАУЗА</button>
-    <button class="btn-sm btn-red" onclick="resetGame()">RESET</button>
+    <!--<button class="btn-sm btn-red" onclick="resetGame()">RESET</button>-->
 </div>
 
 <div class="header-info">
@@ -1011,7 +1011,7 @@
         }
     }
 
-    async function resetGame() {
+    /*async function resetGame() {
       const { data, error } = await supabaseClient
         .from('quiz_state')
         .update({ scores: {} })
@@ -1022,9 +1022,7 @@
         return;
       }
         renderTable();
-        saveGlobalState();
-      renderTable();
-    }
+    }*/
 
     // REMOVED AUTO-DELETE INTERVAL AS REQUESTED
 </script>
