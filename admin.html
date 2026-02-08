@@ -1015,11 +1015,11 @@
       const { data, error } = await supabaseClient
         .from('quiz_state')
         .update({ scores: {} })
-        .neq('id', 0)
+        .neq('id', 0);
     
       if (error) {
-        console.error('Supabase error:', error)
-        return
+        console.error('Supabase error:', error);
+        return;
       }
     
       renderTable()
