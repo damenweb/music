@@ -134,7 +134,7 @@
             const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', u).eq('password', p).single();
             if (data) { myLogin = data.username; showGameScreen(); }
         }*/
-        const u = localStorage.getItem('quiz_user'), p = localStorage.getItem('quiz_pass');
+        const u = localStorage.getItem('quiz_user');
         if (u) {
             const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', u).single();
             if (data) { myLogin = data.username; showGameScreen(); }
@@ -142,10 +142,18 @@
     }
 
     async function tryLogin() {
-        const u = document.getElementById('username').value, p = document.getElementById('password').value;
+        /*const u = document.getElementById('username').value, p = document.getElementById('password').value;
         const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', u).eq('password', p).single();
         if (data) { 
             localStorage.setItem('quiz_user', u); localStorage.setItem('quiz_pass', p);
+            myLogin = data.username; showGameScreen();
+        } else {
+            alert("Отказано в доступе");
+        }*/
+        const u = document.getElementById('username').value;
+        const { data } = await supabaseClient.from('quiz_users').select('*').eq('username', u).single();
+        if (data) { 
+            localStorage.setItem('quiz_user', u);
             myLogin = data.username; showGameScreen();
         } else {
             alert("Отказано в доступе");
