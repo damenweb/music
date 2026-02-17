@@ -393,7 +393,8 @@
     }).subscribe();
 
     function startLocalTimer(sec) {
-        let left = sec;
+        let left = sec - 1;
+        console.log(left);
         const el = document.getElementById('player-timer');
         clearInterval(localTimerId);
         
