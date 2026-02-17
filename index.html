@@ -138,7 +138,9 @@
     let localTimerId, currentLvlTag = "", currentSongNum = -1;
     let currentLvlIdx = 0; 
     let hasAnsweredThisSong = false; 
-
+    
+    let quizLevels = [];
+    
     window.onload = () => {
         checkAuth();
         const autoSendCheck = document.getElementById('autoSend');
@@ -188,10 +190,36 @@
         
         // --- NEW: Restore state from DB immediately to fix F5 disabled inputs ---
         restoreGameState();
-        
+        loadQuizSettings();
         supabaseClient.channel('quiz_chat').track({ user: myLogin });
     }
 
+    async function loadQuizSettings() {
+        const { data, error } = await supabaseClient
+            .from('quiz_settings')
+            .select('json_data')
+            .eq('id', 1)
+            .single();
+    
+        if (error || !data) {
+            console.warn("Не удалось загрузить quiz_settings", error);
+            return;
+        }
+    
+        quizLevels = data.json_data.levels || [];
+    }
+
+    function updateLvlBadge(levelText, lvlIdx) {
+        const badge = document.getElementById('lvl-badge');
+    
+        if (lvlIdx >= 0 && quizLevels[lvlIdx]) {
+            const dur = quizLevels[lvlIdx].dur;
+            badge.innerText = `${levelText} (${dur}s)`;
+        } else {
+            badge.innerText = levelText;
+        }
+    }
+    
     async function restoreGameState() {
         const { data } = await supabaseClient.from('quiz_state').select('*').eq('id', 1).single();
         if(!data) return;
@@ -224,7 +252,7 @@
             currentLvlIdx = data.active_level;
             if (currentLvlIdx >= 0) {
                 currentLvlTag = `Раунд ${currentLvlIdx + 1}`;
-                document.getElementById('lvl-badge').innerText = currentLvlTag;
+                updateLvlBadge(currentLvlTag, currentLvlIdx);//document.getElementById('lvl-badge').innerText = currentLvlTag;
             } else if (data.current_phase === 'REVEALED') {
                 //document.getElementById('lvl-badge').innerText = p.payload.answer;
             }
@@ -319,20 +347,7 @@
     channel.on('broadcast', { event: 'sync_state' }, p => {
         const d = p.payload;
         document.getElementById('track-val').innerText = `${d.songNum}/${d.totalSongs || '?'}`;
-        document.getElementById('lvl-badge').innerText = d.level;
-
-
-
-
-
-
-
-
-
-
-
-
-        
+        updateLvlBadge(d.level, d.activeLvlIdx);//document.getElementById('lvl-badge').innerText = d.level;
         // Если уровень изменился в рамках одной песни, сбрасываем локальное состояние "пропуска подсказки"
         if (currentLvlIdx !== d.activeLvlIdx && !hasAnsweredThisSong) {
              //document.getElementById('status').innerText = "Новая подсказка! Слушаем...";
