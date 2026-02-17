@@ -399,7 +399,7 @@
             const lvlCfg = settings.levels[activeLevel];
             const totalTime = Math.ceil(lvlCfg.dur) + lvlCfg.timer; 
             
-            broadcastTimer(totalTime, `Подсказка ${activeLevel+1}`);
+            broadcastTimer(totalTime, `Раунд ${activeLevel+1}`);
             startInternalTimer(totalTime); // This handles DB update for timer
 
             clearTimeout(playTimeout);
@@ -450,7 +450,7 @@
             payload: { 
                 songNum: currentIndex + 1, 
                 totalSongs: playlist.length, 
-                level: `Подсказка ${lvl+1}`,
+                level: `Раунд ${lvl+1}`,
             
                 allLevels: levelsInfo,
                 activeLvlIdx: lvl
