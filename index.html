@@ -393,8 +393,8 @@
     }).subscribe();
 
     function startLocalTimer(sec) {
-        let left = sec - 1;
-        console.log(left);
+        let left = sec - 1; // -1 добавлен, чтобы пофиксить асинхрон
+
         const el = document.getElementById('player-timer');
         clearInterval(localTimerId);
         
