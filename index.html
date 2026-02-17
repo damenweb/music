@@ -18,6 +18,18 @@
         input[type="text"] { width: 100%; padding: 10px; margin: 8px 0; background: #111; border: 1px solid #444; color: white; border-radius: 4px; font-size: 16px; box-sizing: border-box; text-align: center; transition: 0.3s; }
         input[type="text"]:focus { border-color: var(--accent); outline: none; background: #000; }
         input[type="text"]:read-only { opacity: 0.5; cursor: not-allowed; }
+
+        /* Увеличение чекбокса */
+        input[type="checkbox"] {
+            transform: scale(1.4);   /* 1.2–1.6 подбери по вкусу */
+            -webkit-transform: scale(1.4); /* для iOS */
+            accent-color: var(--accent);   /* красиво покрасит галочку */
+        }
+        
+        /* Чтобы клик-зона была удобнее */
+        label[for="autoSend"] {
+            font-size: 13px;
+        }
         
         button { width: 100%; padding: 15px; background: var(--accent); border: none; color: white; font-weight: bold; border-radius: 4px; font-size: 14px; cursor: pointer; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
         button:hover:not(:disabled) { background: #0086ed; }
