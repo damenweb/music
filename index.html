@@ -370,7 +370,7 @@
         
     }).on('broadcast', { event: 'start_timer' }, p => {
         const sec = p.payload.sec;
-        if (sec > 10) {
+        if (sec > 0) {
             if (!hasAnsweredThisSong) { 
                 toggleInputs(true);
                 if(currentLvlIdx === 2)
