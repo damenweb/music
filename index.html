@@ -217,7 +217,7 @@ let settings = {};
             currentLvlIdx = data.active_level;
             if (currentLvlIdx >= 0) {
                 currentLvlTag = `Раунд ${currentLvlIdx + 1}`;
-                const lvlCfg = settings.levels[currentLvlTag];
+                const lvlCfg = settings.levels[currentLvlIdx];
                 console.log(lvlCfg);
                 document.getElementById('lvl-badge').innerText = currentLvlTag;
             } else if (data.current_phase === 'REVEALED') {
