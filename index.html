@@ -313,6 +313,25 @@
         const d = p.payload;
         document.getElementById('track-val').innerText = `${d.songNum}/${d.totalSongs || '?'}`;
         document.getElementById('lvl-badge').innerText = d.level;
+
+
+        const { settings } = await supabaseClient.from('quiz_settings').select('json_data').eq('id', 1).single();
+        if (settings && settings.json_data) {
+            console.log(settings);
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
         
         // Если уровень изменился в рамках одной песни, сбрасываем локальное состояние "пропуска подсказки"
         if (currentLvlIdx !== d.activeLvlIdx && !hasAnsweredThisSong) {
