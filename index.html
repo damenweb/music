@@ -183,14 +183,20 @@
         }
     }
 
-    function showGameScreen() {
+    async function showGameScreen() {
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
         document.getElementById('display-name').innerText = myLogin;
         
         // --- NEW: Restore state from DB immediately to fix F5 disabled inputs ---
-        restoreGameState();
-        loadQuizSettings();
+        
+        channel.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await loadQuizSettings();
+            }
+        });
+
+        await restoreGameState();
         supabaseClient.channel('quiz_chat').track({ user: myLogin });
     }
 
