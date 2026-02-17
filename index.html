@@ -89,7 +89,7 @@
         <div id="player-timer">00</div>
         
         <p style="font-size:12px; color:#777; margin: 0 0 5px 0;">
-            Три подсказки. Одна попытка. Выбор момента за вами.
+            Три раунда. Одна попытка. Выбор момента за вами.
         </p>
         <p style="font-size:12px; color:#777; margin: 0 0 10px 0;">
             Можно отправить что-то одно: исполнителя или песню
@@ -113,7 +113,7 @@
 
         <table class="points-table">
             <thead>
-                <tr><th>Подсказка</th><th>Артист</th><th>Песня</th><th>Комбо</th></tr>
+                <tr><th>Раунд</th><th>Артист</th><th>Песня</th><th>Комбо</th></tr>
             </thead>
             <tbody id="points-body">
                 <tr><td colspan="4" style="color:#555">Данные загружаются...</td></tr>
@@ -216,7 +216,7 @@
         if (typeof data.active_level !== 'undefined') {
             currentLvlIdx = data.active_level;
             if (currentLvlIdx >= 0) {
-                currentLvlTag = `Подсказка ${currentLvlIdx + 1}`;
+                currentLvlTag = `Раунд ${currentLvlIdx + 1}`;
                 document.getElementById('lvl-badge').innerText = currentLvlTag;
             } else if (data.current_phase === 'REVEALED') {
                 //document.getElementById('lvl-badge').innerText = p.payload.answer;
