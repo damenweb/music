@@ -229,10 +229,9 @@ let settings = {};
         const { data } = await supabaseClient.from('quiz_settings').select('json_data').eq('id', 1).single();
         if (data && data.json_data) {
             settings = data.json_data;
+            console.log(settings);
         }
     }
-
-
 
         
         // 4. Sync Timer & Inputs
