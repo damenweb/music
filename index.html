@@ -211,29 +211,29 @@
                 }
             }
         }
-let settings = {};
+
         // 3. Sync Active Level / Phase
         if (typeof data.active_level !== 'undefined') {
             currentLvlIdx = data.active_level;
+
+            const { settings } = await supabaseClient.from('quiz_settings').select('json_data').eq('id', 1).single();
+            if (settings && settings.json_data) {
+                console.log(settings.json_data);
+            }
+
+
+
+            
             if (currentLvlIdx >= 0) {
                 currentLvlTag = `Раунд ${currentLvlIdx + 1}`;
-                const lvlCfg = settings.levels[currentLvlIdx];
-                console.log(lvlCfg);
+                //const lvlCfg = settings.levels[currentLvlIdx];
+                //console.log(lvlCfg);
                 document.getElementById('lvl-badge').innerText = currentLvlTag;
             } else if (data.current_phase === 'REVEALED') {
                 //document.getElementById('lvl-badge').innerText = p.payload.answer;
             }
         }
-
-    async function loadSettings() {
-        const { data } = await supabaseClient.from('quiz_settings').select('json_data').eq('id', 1).single();
-        if (data && data.json_data) {
-            settings = data.json_data;
-            console.log(settings);
-        }
-    }
-
-        
+     
         // 4. Sync Timer & Inputs
         const now = Date.now();
         const endTs = data.timer_end_ts || 0;
