@@ -315,13 +315,6 @@
         document.getElementById('lvl-badge').innerText = d.level;
 
 
-        const { settings } = await supabaseClient.from('quiz_settings').select('json_data').eq('id', 1).single();
-        if (settings && settings.json_data) {
-            console.log(settings);
-        }
-
-
-
 
 
 
