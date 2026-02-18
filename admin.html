@@ -174,9 +174,14 @@
         }
         .btn-eval:hover { opacity: 1; transform: scale(1.05);
         }
-        .btn-eval.selected { opacity: 1; box-shadow: 0 0 5px white;
-            border: 1px solid white; }
-        
+        /*.btn-eval.selected { opacity: 1; box-shadow: 0 0 5px white;
+            border: 1px solid white; }*/
+        .btn-eval.selected {
+            opacity: 1;
+            /* Тень и «бордер» рисуются внутри, не влияя на размер */
+            box-shadow: inset 0 0 5px white, inset 0 0 0 1px white; 
+            border: none; /* Убираем обычный border, если он мешает */
+        }
         .be-yes { background: #2e7d32;
         }
         .be-part { background: #f9a825;
