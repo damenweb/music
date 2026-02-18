@@ -172,7 +172,7 @@
         .eval-actions { display: flex;
             gap: 4px; justify-content: center; align-items: center; }
         .btn-eval { padding: 4px 8px;
-            border: none; border-radius: 2px; font-size: 13px; font-weight: 900; cursor: pointer; color: white; min-width: 45px; opacity: 0.6; transition: 0.2s;
+            border: none; border-radius: 2px; font-size: 13px; font-weight: bold; cursor: pointer; color: white; min-width: 45px; opacity: 0.6; transition: 0.2s;
         }
         .btn-eval:hover { opacity: 1; transform: scale(1.05);
         }
@@ -870,7 +870,7 @@
                 return `
                 <div class="eval-actions" style="flex-wrap: wrap;">
                     <button class="btn-eval be-yes ${currentVal === valFull ? 'selected' : ''}" onclick="setScore('${login}', '${type}', ${valFull})">+${valFull}</button>
-                    <button class="btn-eval be-part ${currentVal === valK1 ? 'selected' : ''}" onclick="setScore('${login}', '${type}', ${valK1})">x${k1}</button>
+                    <button class="btn-eval be-part ${currentVal === valK1 ? 'selected' : ''}" onclick="setScore('${login}', '${type}', ${valK1})">×${k1}</button>
                     <!--<button class="btn-eval be-part ${currentVal === valK2 ? 'selected' : ''}" style="background:#ce93d8" onclick="setScore('${login}', '${type}', ${valK2})">x${k2}</button>
                     -->
                     <button class="btn-eval be-undo" onclick="setScore('${login}', '${type}', 0)">0</button>
