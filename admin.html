@@ -38,12 +38,12 @@
 
         /* TOP BAR */
         .top-bar { height: 35px;
-            background: var(--panel-bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 15px;
+            background: var(--panel-bg); border-bottom: 1px solid var(--border); align-items: center; padding: 0 20px; gap: 15px;
         }
-        .top-bar input[type="text"] { background: #121212; border: 1px solid #444; color: white;
-            padding: 6px; width: 160px; }
+        #gsheets-url { background: #121212; border: 1px solid #444; color: white;
+            padding: 6px; width: 137px; height: 28px; text-align: center; }
         .btn-sm { background: transparent; border: 1px solid var(--border);
-            color: #ccc; padding: 5px 12px; cursor: pointer; font-size: 12px; text-transform: uppercase; border-radius: 3px; transition: 0.2s;
+            color: #ccc; padding: 5px 12px; cursor: pointer; font-size: 12px; text-transform: uppercase; border-radius: 3px; transition: 0.2s; width: 137px; height: 30px; 
         }
         .btn-sm:hover { background: #333; color: white; border-color: #555;
         }
@@ -65,10 +65,10 @@
         } }
 
         /* HEADER INFO */
-        .header-info { height: 110px;
-            display: flex; align-items: center; justify-content: space-between; padding: 0 40px; border-bottom: 1px solid var(--border); background: #161616;
+        .header-info { height: 120px;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--border); background: #161616;
         }
-        .song-counter { font-size: 24px; font-weight: 300; width: 200px;
+        .song-counter { font-size: 24px; font-weight: 300; height: 120px; line-height: 120px; text-align: center; 
         }
         .status-display { flex: 1; text-align: center; font-size: 28px; font-weight: bold; letter-spacing: 2px;
             color: var(--accent); text-transform: uppercase; }
@@ -89,8 +89,8 @@
             flex: 1; overflow: hidden; }
         
         /* LEFT CONTROLS */
-        .controls-section { width: 20%; justify-content: center; min-height: 50vh; 
-            min-width: 320px; border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; background: #181818; overflow-y: auto;
+        .controls-section { width: 20%; min-height: 50vh; 
+            min-width: 320px; border-right: 1px solid var(--border); padding: 0px 20px 20px 20px; display: flex; flex-direction: column; align-items: center; /*gap: 20px;*/ background: #181818; overflow-y: auto;
         }
         .play-buttons { display: flex; gap: 15px; justify-content: center; width: 100%;
         }
@@ -106,7 +106,7 @@
         } 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
         } }
 
-        .nav-buttons { display: flex; width: 100%; gap: 10px;
+        .nav-buttons { display: flex; width: 100%; gap: 10px; margin-top: 20px; 
         }
         .btn-nav { flex: 1; padding: 15px 0; background: #333; color: white;
             border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
@@ -217,6 +217,8 @@
             padding: 2px 6px;  /* Внутренние отступы для красоты */
             min-width: 50px;   /* Чтобы блоки были одинаковой ширины */
         }
+		
+		.setup { margin-top: auto;       /* Магия: выталкивает блок максимально вниз */ }
     </style>
 </head>
 <body>
@@ -231,34 +233,13 @@
 
 <input type="file" id="excel-file" hidden accept=".xlsx, .xls">
 
-<div class="top-bar">
-    <button class="btn-sm" onclick="document.getElementById('excel-file').click()">Загрузить Excel</button>
-    <div style="display:flex; gap:5px;">
-        <input type="text" id="gsheets-url" placeholder="Google Sheet CSV URL">
-        <button class="btn-sm" onclick="loadFromGSheets()">Load URL</button>
-    </div>
-    <div style="flex:1"></div>
-    <button class="btn-sm" onclick="toggleSettings()">Настройки</button>
-    <button id="btn-pause" class="btn-sm pause-btn" onclick="togglePause()">ПАУЗА</button>
-    <!--<button class="btn-sm btn-red" onclick="resetGame()">RESET</button>-->
-</div>
 
-<div class="header-info">
-    <div class="song-counter" id="track-counter">Песня 0 / 0</div>
-    
-    <div class="status-display" id="status-display">ОЖИДАНИЕ</div>
 
-    <div class="timer-wrapper">
-        <svg class="timer-svg">
-            <circle class="timer-circle" id="timer-circle" cx="50" cy="50" r="45"></circle>
-        </svg>
-        <div class="timer-text" id="timer-display">00</div>
-    </div>
-</div>
 
 <div class="main-container">
     
     <div class="controls-section">
+		<div class="song-counter" id="track-counter">Песня 0 / 0</div>
         <div class="play-buttons">
             <button id="btn-lvl-0" class="btn-play" style="background:var(--gold)" onclick="manualStart(0)">
                 <span>1</span>
@@ -286,7 +267,14 @@
                     </tbody>
              </table>
         </div>
-
+	<div class="setup">
+		<input type="text" id="gsheets-url" placeholder="Google Sheet URL">
+		<button class="btn-sm" onclick="loadFromGSheets()">Load URL</button>
+		<button class="btn-sm" onclick="document.getElementById('excel-file').click()">Загрузить Excel</button>
+		<button class="btn-sm" onclick="toggleSettings()">Настройки</button>
+		<!--<button id="btn-pause" class="btn-sm pause-btn" onclick="togglePause()">ПАУЗА</button>-->
+		<!--<button class="btn-sm btn-red" onclick="resetGame()">RESET</button>-->
+	</div>
         <div id="settings-overlay">
             <div style="display:flex;
                 justify-content:space-between; align-items:center;">
@@ -306,6 +294,18 @@
     </div>
 
     <div class="table-section">
+	
+<div class="header-info">
+
+    <div class="status-display" id="status-display">ОЖИДАНИЕ</div>
+
+    <div class="timer-wrapper">
+        <svg class="timer-svg">
+            <circle class="timer-circle" id="timer-circle" cx="50" cy="50" r="45"></circle>
+        </svg>
+        <div class="timer-text" id="timer-display">00</div>
+    </div>
+</div>
         <table class="unified-table">
             <thead>
                 <tr>
