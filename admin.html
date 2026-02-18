@@ -330,8 +330,14 @@
     let players = {};
     let onlineUsers = new Set();
     let sortedPlayerLogins = []; // Fixed order for the current round
-    
+
     const DEFAULT_SETTINGS = [
+        { dur: 2.0, timer: 25, pArt: 120, pSong: 150, kArt: 0.5, kArt2: 0.2, kSong: 0.5, kSong2: 0.2, combo: 20 },
+        { dur: 5.0, timer: 20, pArt: 80, pSong: 100, kArt: 0.5, kArt2: 0.2, kSong: 0.5, kSong2: 0.2, combo: 15 },
+        { dur: 15.0, timer: 10, pArt: 40, pSong: 50, kArt: 0.5, kArt2: 0.2, kSong: 0.5, kSong2: 0.2, combo: 10 }
+    ];
+    
+    const DEFAULT_SETTINGS_NEW = [
         { dur: 2.0, timer: 25, pArt: 40, pSong: 60, kArt: 0.5, kArt2: 0.2, kSong: 0.5, kSong2: 0.2, combo: 30 },
         { dur: 5.0, timer: 20, pArt: 24, pSong: 36, kArt: 0.5, kArt2: 0.2, kSong: 0.5, kSong2: 0.2, combo: 25 },
         { dur: 15.0, timer: 10, pArt: 16, pSong: 16, kArt: 0.5, kArt2: 0.2, kSong: 0.5, kSong2: 0.2, combo: 20 }
