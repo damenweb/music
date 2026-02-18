@@ -70,6 +70,16 @@
         #pause-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); z-index: 100; display: none; align-items: center; justify-content: center; border-radius: 15px; backdrop-filter: blur(2px);
         }
+
+        #points-body td span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 24px;      /* Жесткая высота блока */
+            line-height: 1;    /* Убираем лишние отступы шрифта */
+            padding: 2px 6px;  /* Внутренние отступы для красоты */
+            min-width: 50px;   /* Чтобы блоки были одинаковой ширины */
+        }
     </style>
 </head>
 <body>
@@ -373,10 +383,10 @@
 
                 tbody.innerHTML += `
                     <tr>
-                        <td class="${isCurrent?'highlight':''}">${idx+1}</td>
-                        <td class="${isCurrent?'highlight':''}">★${l.pArt}<!--<br><span style="color:#555">(${Number(art1)} | ${Number(art2)})</span>--></td>
-                        <td class="${isCurrent?'highlight':''}">★${l.pSong}<!--<br><span style="color:#555">(${Number(sng1)} | ${Number(sng2)})</span>--></td>
-                        <td class="${isCurrent?'highlight':''}">+${l.combo}%</td>
+                        <td class="${isCurrent?'highlight':''}"><span>${idx+1}</span></td>
+                        <td class="${isCurrent?'highlight':''}"><span>★${l.pArt}<!--<br><span style="color:#555">(${Number(art1)} | ${Number(art2)})</span>--></span></td>
+                        <td class="${isCurrent?'highlight':''}"><span>★${l.pSong}<!--<br><span style="color:#555">(${Number(sng1)} | ${Number(sng2)})</span>--></span></td>
+                        <td class="${isCurrent?'highlight':''}"><span>+${l.combo}%</span></td>
                     </tr>
                 `;
             });
