@@ -31,7 +31,7 @@
         .login-box { background: #1e1e1e; padding: 40px; border-radius: 12px; border: 1px solid var(--accent);
             text-align: center; }
         .login-box input { display: block; width: 250px; padding: 12px;
-            margin: 20px 0; background: #000; border: 1px solid #444; color: white; text-align: center; border-radius: 4px;
+            margin: 20px 0; background: #000; border: 1px solid #333; color: white; text-align: center; border-radius: 4px;
         }
         .btn-login { background: var(--accent); color: white; border: none; padding: 12px 24px;
             cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; }
@@ -119,7 +119,7 @@
         }
         .info-table { width: 100%; border-collapse: collapse; font-size: 16px; color: #ccc;
         }
-        .info-table th { text-align: center; border-bottom: 1px solid #444; padding: 4px;
+        .info-table th { text-align: center; border-bottom: 1px solid #333; padding: 4px;
             color: #888; }
         .info-table td { padding: 4px; border-bottom: 1px solid #333;
         }
@@ -132,7 +132,7 @@
         .unified-table { width: 100%; border-collapse: collapse;
             font-size: 16px; }
         .unified-table th { background: #252525; position: sticky; top: 0;
-            padding: 5px; font-size: 16px; text-align: center; border-bottom: 2px solid #444; z-index: 10; font-weight: 500; color: #aaa;
+            padding: 5px; font-size: 16px; text-align: center; border-bottom: 1px solid #333; z-index: 10; font-weight: 500; color: #aaa;
         }
         .unified-table td { padding: 3px 5px 3px 5px; border-bottom: 1px solid #333; vertical-align: middle;
         }
@@ -195,12 +195,12 @@
 
         /* SETTINGS OVERLAY */
         #settings-overlay { display: none;
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 800px; background: #222; border: 1px solid #444; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 800px; background: #222; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             z-index: 5000; padding: 20px; border-radius: 8px; }
         .settings-table { width: 100%; border-collapse: collapse;
             margin-top: 10px; }
         .settings-table th, .settings-table td { padding: 8px;
-            border: 1px solid #444; text-align: center; font-size: 13px; width: 50px; }
+            border: 1px solid #333; text-align: center; font-size: 13px; width: 50px; }
         .settings-table input { width: 50px;
             background: #111; border: 1px solid #555; color: white; text-align: center; padding: 4px;
         }
@@ -900,7 +900,7 @@
 
             tr.innerHTML = `
                 <td align=center style="font-size:16px;"><b>${login}</b> <small style="color:${isOnline?'#2e7d32':'#555'}">●</small></td>
-                <!--<td align=center><input type="number" value="${displayScore}" onchange="manualEditTotal('${login}', this.value)" style="width:60px;background:#000;color:#fff;border:1px solid #444;text-align:center;font-size:16px;font-weight:bold"></td>
+                <!--<td align=center><input type="number" value="${displayScore}" onchange="manualEditTotal('${login}', this.value)" style="width:60px;background:#000;color:#fff;border:1px solid #333;text-align:center;font-size:16px;font-weight:bold"></td>
                 -->
                 <!--<td align="center"><input type="number" value="${displayScore}" onchange="manualEditTotal('${login}', this.value)" style="width:60px;height:24px;font-size:16px;font-weight:600;text-align:center;background:linear-gradient(180deg,#1e1e1e,#121212);color:#f1f1f1;border:1px solid #333;border-radius:6px;padding:6px 4px;outline:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04),0 1px 2px rgba(0,0,0,0.6);transition:border-color .15s ease,box-shadow .15s ease" onfocus="this.style.borderColor='#5aa9ff';this.style.boxShadow='0 0 0 2px rgba(90,169,255,0.25)'" onblur="this.style.borderColor='#333';this.style.boxShadow='inset 0 0 0 1px rgba(255,255,255,0.04),0 1px 2px rgba(0,0,0,0.6)'"></td>
                 -->
