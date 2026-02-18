@@ -231,17 +231,7 @@
 
 <input type="file" id="excel-file" hidden accept=".xlsx, .xls">
 
-<div class="top-bar">
-    <button class="btn-sm" onclick="document.getElementById('excel-file').click()">Загрузить Excel</button>
-    <div style="display:flex; gap:5px;">
-        <input type="text" id="gsheets-url" placeholder="Google Sheet CSV URL">
-        <button class="btn-sm" onclick="loadFromGSheets()">Load URL</button>
-    </div>
-    <div style="flex:1"></div>
-    <button class="btn-sm" onclick="toggleSettings()">Настройки</button>
-    <button id="btn-pause" class="btn-sm pause-btn" onclick="togglePause()">ПАУЗА</button>
-    <!--<button class="btn-sm btn-red" onclick="resetGame()">RESET</button>-->
-</div>
+
 
 <div class="header-info">
     <div class="song-counter" id="track-counter">Песня 0 / 0</div>
@@ -259,6 +249,17 @@
 <div class="main-container">
     
     <div class="controls-section">
+        <div class="top-bar">
+    <button class="btn-sm" onclick="document.getElementById('excel-file').click()">Загрузить Excel</button>
+    <div style="display:flex; gap:5px;">
+        <input type="text" id="gsheets-url" placeholder="Google Sheet CSV URL">
+        <button class="btn-sm" onclick="loadFromGSheets()">Load URL</button>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn-sm" onclick="toggleSettings()">Настройки</button>
+    <button id="btn-pause" class="btn-sm pause-btn" onclick="togglePause()">ПАУЗА</button>
+    <!--<button class="btn-sm btn-red" onclick="resetGame()">RESET</button>-->
+</div>
         <div class="play-buttons">
             <button id="btn-lvl-0" class="btn-play" style="background:var(--gold)" onclick="manualStart(0)">
                 <span>1</span>
