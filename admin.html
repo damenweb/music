@@ -41,9 +41,9 @@
             background: var(--panel-bg); border-bottom: 1px solid var(--border); align-items: center; padding: 0 20px; gap: 15px;
         }
         #gsheets-url { background: #121212; border: 1px solid #444; color: white;
-            padding: 6px; width: 137px; height: 28px; text-align: center; }
+            padding: 6px; text-align: center; width: 137px; }
         .btn-sm { background: transparent; border: 1px solid var(--border);
-            color: #ccc; padding: 5px 12px; cursor: pointer; font-size: 12px; text-transform: uppercase; border-radius: 3px; transition: 0.2s; width: 137px; height: 30px; 
+            color: #ccc; padding: 5px 12px; cursor: pointer; font-size: 12px; text-transform: uppercase; border-radius: 3px; transition: 0.2s; width: 137px; 
         }
         .btn-sm:hover { background: #333; color: white; border-color: #555;
         }
@@ -195,7 +195,7 @@
 
         /* SETTINGS OVERLAY */
         #settings-overlay { display: none;
-            position: fixed; top: 50px; right: 20px; width: 800px; background: #222; border: 1px solid #444; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 800px; background: #222; border: 1px solid #444; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             z-index: 5000; padding: 20px; border-radius: 8px; }
         .settings-table { width: 100%; border-collapse: collapse;
             margin-top: 10px; }
@@ -218,7 +218,13 @@
             min-width: 50px;   /* Чтобы блоки были одинаковой ширины */
         }
 		
-		.setup { margin-top: auto;       /* Магия: выталкивает блок максимально вниз */ }
+		.setup {
+    display: flex;
+    flex-direction: column; /* Складываем строки вертикально */
+    gap: 7px;             /* Расстояние между строками */
+	justify-content: center;
+	margin-top: auto;  
+}
     </style>
 </head>
 <body>
@@ -267,14 +273,19 @@
                     </tbody>
              </table>
         </div>
-	<div class="setup">
-		<input type="text" id="gsheets-url" placeholder="Google Sheet URL">
-		<button class="btn-sm" onclick="loadFromGSheets()">Load URL</button>
-		<button class="btn-sm" onclick="document.getElementById('excel-file').click()">Загрузить Excel</button>
-		<button class="btn-sm" onclick="toggleSettings()">Настройки</button>
+		<div class="setup">
+			<div class="row">
+				<input type="text" id="gsheets-url" placeholder="Google Sheet URL">
+				<button class="btn-sm" onclick="loadFromGSheets()">Load URL</button>
+			</div>
+			
+			<div class="row">
+				<button class="btn-sm" onclick="document.getElementById('excel-file').click()">Загрузить Excel</button>
+				<button class="btn-sm" onclick="toggleSettings()">Настройки</button>
+			</div>
+		</div>
 		<!--<button id="btn-pause" class="btn-sm pause-btn" onclick="togglePause()">ПАУЗА</button>-->
 		<!--<button class="btn-sm btn-red" onclick="resetGame()">RESET</button>-->
-	</div>
         <div id="settings-overlay">
             <div style="display:flex;
                 justify-content:space-between; align-items:center;">
