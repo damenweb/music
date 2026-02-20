@@ -1069,7 +1069,7 @@
         }, 500);
     }
 
-    async function restoreState() {
+    /*async function restoreState() {
         const { data } = await supabaseClient.from('quiz_state').select('*').eq('id', 1).single();
         if (data) {
             if (data.playlist) playlist = data.playlist;
@@ -1084,7 +1084,31 @@
             });
             updateTrackDisplay();
         }
-    }
+    }заменил 2026-02-20*/
+
+	async function restoreState() {
+	    const { data } = await supabaseClient.from('quiz_state').select('*').eq('id', 1).single();
+	    if (data) {
+	        if (data.playlist) playlist = data.playlist;
+	        if (data.current_index) currentIndex = data.current_index;
+	        if (data.scores) players = data.scores;
+	        if (typeof data.active_level !== 'undefined') activeLevel = data.active_level;
+	        if (data.current_phase) currentPhase = data.current_phase;
+	        
+	        // --- НОВАЯ ЛОГИКА ТУТ ---
+	        // Восстанавливаем порядок сортировки на основе очков из базы
+	        sortedPlayerLogins = Object.keys(players).sort((a, b) => 
+	            players[b].totalScore - players[a].totalScore
+	        );
+	        // -----------------------
+	
+	        Object.keys(players).forEach(k => {
+	            if(!players[k].roundData) players[k].roundData = { artAns: null, songAns: null, stage: null, status: 'WAIT', artScore: 0, songScore: 0 };
+	        });
+	        updateTrackDisplay();
+	        renderTable(); // Вызываем рендер сразу после восстановления
+	    }
+	}
 
     /*async function resetGame() {
       const { data, error } = await supabaseClient
