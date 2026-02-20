@@ -835,15 +835,15 @@
 
     // --- TABLE RENDER & SCORING ---
 
-    /*function renderTable() {
+    function renderTable() {
         const tbody = document.getElementById('players-table-body');
         tbody.innerHTML = '';
 
         // Use cached sorted order so rows don't jump
         // Filter out deleted players just in case
         const validLogins = sortedPlayerLogins.filter(l => players[l]);
-        validLogins.forEach(login => {2026-02-20*/
-	function renderTable() {
+        validLogins.forEach(login => {
+	/*function renderTable() {
 	    const tbody = document.getElementById('players-table-body');
 	    tbody.innerHTML = '';
 	
@@ -880,7 +880,7 @@
 	    });
 	
 	    // Теперь используем liveSortedLogins вместо sortedPlayerLogins
-	    liveSortedLogins.forEach(login => {
+	    liveSortedLogins.forEach(login => {2026-02-20*/
             const p = players[login];
             const rd = p.roundData;
             const isOnline = onlineUsers.has(login);
@@ -988,8 +988,8 @@ function manualEditTotal(login, val) {
     players[login].totalScore = parseFloat(val);
     
     //2026-02-20. раньше обнулялось. НЕ обнуляем artScore и songScore, чтобы кнопки остались "нажатыми"
-    // players[login].roundData.artScore = 0; // ЭТУ СТРОКУ УДАЛЯЕМ
-    // players[login].roundData.songScore = 0; // ЭТУ СТРОКУ УДАЛЯЕМ
+     players[login].roundData.artScore = 0; // ЭТУ СТРОКУ УДАЛЯЕМ
+     players[login].roundData.songScore = 0; // ЭТУ СТРОКУ УДАЛЯЕМ
     
     renderTable();
     saveGlobalState();
