@@ -96,7 +96,15 @@
         
         <div class="info-bar">
             <div>TRACK: <span id="track-val" style="color:white; font-weight: bold;">--</span></div>
+            /*<div class="user-section">
+                <span id="display-name" style="color: var(--accent); font-weight: bold;"></span>
+                <button class="btn-logout" onclick="logout()">ВЫХОД</button>
+            </div>*/
             <div class="user-section">
+            <div style="text-align: right; margin-right: 10px;">
+                    <span id="player-score" style="color: var(--gold); font-weight: bold; font-size: 16px;">0</span>
+                    <div style="font-size: 9px; color: #777; margin-top: -4px;">POINTS</div>
+            </div>
                 <span id="display-name" style="color: var(--accent); font-weight: bold;"></span>
                 <button class="btn-logout" onclick="logout()">ВЫХОД</button>
             </div>
@@ -243,6 +251,10 @@
         // 2. Sync Player Status (Has answered?)
         if (data.scores && data.scores[myLogin]) {
             const p = data.scores[myLogin];
+            // ОБНОВЛЕНИЕ БАЛЛОВ ПРИ ЗАГРУЗКЕ
+            const scoreEl = document.getElementById('player-score');
+            if (scoreEl) scoreEl.innerText = p.totalScore || 0;
+            
             if (p.roundData) {
                 // If status is ANS or SKIP_SONG, inputs must stay locked
                 if(p.roundData.status === 'ANS' || p.roundData.status === 'SKIP_SONG') {
@@ -356,6 +368,11 @@
     const channel = supabaseClient.channel('quiz_chat');
     channel.on('broadcast', { event: 'sync_state' }, p => {
         const d = p.payload;
+        // Если админ прислал обновленный объект всех игроков (scores)
+        if (d.scores && d.scores[myLogin]) {
+            document.getElementById('player-score').innerText = d.scores[myLogin].totalScore || 0;
+        }
+        
         document.getElementById('track-val').innerText = `${d.songNum}/${d.totalSongs || '?'}`;
         updateLvlBadge(d.level, d.activeLvlIdx);//document.getElementById('lvl-badge').innerText = d.level;
         // Если уровень изменился в рамках одной песни, сбрасываем локальное состояние "пропуска подсказки"
