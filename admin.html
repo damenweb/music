@@ -988,8 +988,8 @@ function manualEditTotal(login, val) {
     players[login].totalScore = parseFloat(val);
     
     //2026-02-20. раньше обнулялось. НЕ обнуляем artScore и songScore, чтобы кнопки остались "нажатыми"
-     //players[login].roundData.artScore = 0; // ЭТУ СТРОКУ УДАЛЯЕМ
-     //players[login].roundData.songScore = 0; // ЭТУ СТРОКУ УДАЛЯЕМ
+     players[login].roundData.artScore = 0; // ЭТУ СТРОКУ УДАЛЯЕМ
+     players[login].roundData.songScore = 0; // ЭТУ СТРОКУ УДАЛЯЕМ
     
     renderTable();
     saveGlobalState();
