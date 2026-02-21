@@ -921,15 +921,24 @@
                 const valFull = Number(maxPts.toFixed(2));
                 const valK1 = Number((maxPts * k1).toFixed(2));
                 const valK2 = Number((maxPts * (k2 || 0)).toFixed(2));
-            
-                return `
-                <div class="eval-actions" style="flex-wrap: wrap;">
-                    <button class="btn-eval be-yes ${currentVal === valFull ? 'selected' : ''}" onclick="setScore('${login}', '${type}', ${valFull})">+${valFull}</button>
-                    <button class="btn-eval be-part ${currentVal === valK1 ? 'selected' : ''}" onclick="setScore('${login}', '${type}', ${valK1})">×${k1}</button>
-                    <!--<button class="btn-eval be-part ${currentVal === valK2 ? 'selected' : ''}" style="background:#ce93d8" onclick="setScore('${login}', '${type}', ${valK2})">x${k2}</button>
-                    -->
-                    <button class="btn-eval be-undo" onclick="setScore('${login}', '${type}', 0)">0</button>
-                </div>`;
+
+				if (type === 'art')
+	                return `
+	                <div class="eval-actions" style="flex-wrap: wrap;">
+	                    <button class="btn-eval be-yes ${currentVal === valFull ? 'selected' : ''}" onclick="setScore('${login}', '${type}', ${valFull})">+${valFull}</button>
+	                    <button class="btn-eval be-part ${currentVal === valK1 ? 'selected' : ''}" onclick="setScore('${login}', '${type}', ${valK1})">×${k1}</button>
+	                    <button class="btn-eval be-part ${currentVal === valK2 ? 'selected' : ''}" style="background:#ce93d8" onclick="setScore('${login}', '${type}', ${valK2})">x${k2}</button>
+	 
+	                    <button class="btn-eval be-undo" onclick="setScore('${login}', '${type}', 0)">0</button>
+	                </div>`;
+				else
+	                return `
+	                <div class="eval-actions" style="flex-wrap: wrap;">
+	                    <button class="btn-eval be-yes ${currentVal === valFull ? 'selected' : ''}" onclick="setScore('${login}', '${type}', ${valFull})">+${valFull}</button>
+	                    <button class="btn-eval be-part ${currentVal === valK1 ? 'selected' : ''}" onclick="setScore('${login}', '${type}', ${valK1})">×${k1}</button>
+
+	                    <button class="btn-eval be-undo" onclick="setScore('${login}', '${type}', 0)">0</button>
+	                </div>`;
             };
             const artHtml = `<div class="ans-block ${!showContent && rd.status==='ANS' ? 'hidden-text' : ''}">${rd.artAns ||
             (rd.status.includes('SKIP') ? 'SKIP' : '---')}</div>` + genBtns('art', cfg.pArt, cfg.kArt, cfg.kArt2);
